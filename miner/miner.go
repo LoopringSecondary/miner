@@ -19,7 +19,7 @@
 package miner
 
 import (
-	"github.com/Loopring/relay/marketcap"
+	"github.com/Loopring/relay-lib/marketcap"
 )
 
 type Miner struct {

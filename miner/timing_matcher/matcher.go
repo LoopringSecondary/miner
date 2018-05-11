@@ -19,17 +19,17 @@
 package timing_matcher
 
 import (
-	"github.com/Loopring/relay/miner"
-	"github.com/Loopring/relay/ordermanager"
+	"github.com/Loopring/miner/miner"
+	"github.com/Loopring/relay-cluster/ordermanager"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 
+	"github.com/Loopring/accessor/ethaccessor"
+	"github.com/Loopring/miner/dao"
+	marketLib "github.com/Loopring/relay-cluster/market"
+	"github.com/Loopring/relay-lib/log"
+	marketUtilLib "github.com/Loopring/relay-lib/marketutil"
 	"github.com/Loopring/relay/config"
-	"github.com/Loopring/relay/dao"
-	"github.com/Loopring/relay/ethaccessor"
-	"github.com/Loopring/relay/log"
-	marketLib "github.com/Loopring/relay/market"
-	marketUtilLib "github.com/Loopring/relay/market/util"
 	"strings"
 )
 

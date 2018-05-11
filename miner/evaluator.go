@@ -20,14 +20,14 @@ package miner
 
 import (
 	"errors"
-	"github.com/Loopring/relay/log"
+	"github.com/Loopring/relay-lib/log"
 	"math"
 	"math/big"
 
 	"fmt"
+	"github.com/Loopring/accessor/ethaccessor"
+	"github.com/Loopring/relay-lib/marketcap"
 	"github.com/Loopring/relay/config"
-	"github.com/Loopring/relay/ethaccessor"
-	"github.com/Loopring/relay/marketcap"
 	"github.com/Loopring/relay/types"
 	"github.com/ethereum/go-ethereum/common"
 )

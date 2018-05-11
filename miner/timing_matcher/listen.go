@@ -19,11 +19,11 @@
 package timing_matcher
 
 import (
-	"github.com/Loopring/relay/dao"
-	"github.com/Loopring/relay/ethaccessor"
-	"github.com/Loopring/relay/eventemiter"
-	"github.com/Loopring/relay/log"
-	"github.com/Loopring/relay/types"
+	"github.com/Loopring/accessor/ethaccessor"
+	"github.com/Loopring/miner/dao"
+	"github.com/Loopring/relay-lib/eventemitter"
+	"github.com/Loopring/relay-lib/log"
+	"github.com/Loopring/relay-lib/types"
 	"math/big"
 	"sync"
 	"time"

@@ -20,12 +20,12 @@ package timing_matcher
 
 import (
 	"fmt"
-	"github.com/Loopring/relay/ethaccessor"
-	"github.com/Loopring/relay/eventemiter"
-	"github.com/Loopring/relay/log"
-	"github.com/Loopring/relay/miner"
-	"github.com/Loopring/relay/ordermanager"
-	"github.com/Loopring/relay/types"
+	"github.com/Loopring/accessor/ethaccessor"
+	"github.com/Loopring/miner/miner"
+	"github.com/Loopring/relay-cluster/ordermanager"
+	"github.com/Loopring/relay-lib/eventemitter"
+	"github.com/Loopring/relay-lib/log"
+	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sort"

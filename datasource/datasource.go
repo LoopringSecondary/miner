@@ -61,7 +61,7 @@ func Initialize(options config.DataSource, rdsOptions *dao.MysqlOptions, marketc
 		accountmanager.Initialize(&options.AccountManager, []string{})
 	} else {
 		source.mode = MOTAN
-		libmotan.InitClient(options.MotanClient)
+		source.motanClient = libmotan.InitClient(options.MotanClient)
 	}
 }
 

@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"strings"
+	"qiniupkg.com/x/log.v7"
 )
 
 type Mode int
@@ -68,17 +69,43 @@ func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allo
 	case LOCAL:
 		return nil, nil, errors.New("")
 	case MOTAN:
-		return nil, nil, errors.New("")
+		req := &libmotan.AccountBalanceAndAllowanceReq{
+			Owner:owner,
+			Token:token,
+			Spender:spender,
+		}
+		res := &libmotan.AccountBalanceAndAllowanceRes{}
+		if err := source.motanClient.Call("getBalanceAndAllowance", []interface{}{req}, res); nil != err {
+			return nil, nil, err
+		} else {
+			return res.Balance, res.Allowance, nil
+		}
 	}
 	return nil, nil, errors.New("error")
 }
 
 func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTime, startBlockNumber, endBlockNumber int64, filterOrderHashLists ...*types.OrderDelayList) []*types.OrderState {
+	orders := []*types.OrderState{}
 	switch source.mode {
 	case LOCAL:
 		return []*types.OrderState{}
 	case MOTAN:
-		return []*types.OrderState{}
+		req := &libmotan.MinerOrdersReq{
+			Protocol:protocol,
+			TokenS:tokenS,
+			TokenB:tokenB,
+			Length:length,
+			ReservedTime:reservedTime,
+			StartBlockNumber:startBlockNumber,
+			EndBlockNumber:endBlockNumber,
+			FilterOrderHashLists:filterOrderHashLists,
+		}
+		res := &libmotan.MinerOrdersRes{}
+		if err := source.motanClient.Call("minerOrders", []interface{}{req}, res); nil != err {
+			log.Errorf("err:%s", err.Error())
+		} else {
+			orders = res.List
+		}
 	}
-	return []*types.OrderState{}
+	return orders
 }

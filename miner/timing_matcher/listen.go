@@ -94,6 +94,7 @@ func (matcher *TimingMatcher) listenOrderReady() {
 		if nil != err {
 			matcher.isOrdersReady = false
 		}
+		matcher.isOrdersReady = true
 		log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t", matcher.isOrdersReady)
 	}
 

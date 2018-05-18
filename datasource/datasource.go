@@ -53,9 +53,7 @@ var source dataSource
 
 func Initialize(options config.DataSource, rdsOptions *dao.MysqlOptions, marketcapProvider marketcap.MarketCapProvider) {
 	source = dataSource{}
-	println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	if "LOCAL" == strings.ToUpper(options.Type) {
-		println("##################")
 		source.mode = LOCAL
 		orderRds := orderDao.NewDb(rdsOptions)
 		um := &usermanager.UserManagerImpl{}
@@ -68,6 +66,7 @@ func Initialize(options config.DataSource, rdsOptions *dao.MysqlOptions, marketc
 }
 
 func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allowance *big.Int, err error) {
+	log.Debugf("##################GetBalanceAndAllowance...")
 	switch source.mode {
 	case LOCAL:
 		return accountmanager.GetBalanceAndAllowance(owner, token, spender)
@@ -88,6 +87,8 @@ func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allo
 }
 
 func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTime, startBlockNumber, endBlockNumber int64, filterOrderHashLists ...*types.OrderDelayList) []*types.OrderState {
+	log.Debugf("##################MinerOrders...")
+
 	orders := []*types.OrderState{}
 	switch source.mode {
 	case LOCAL:

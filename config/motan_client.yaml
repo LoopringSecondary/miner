@@ -1,5 +1,5 @@
 #config fo server
-motan-server:
+motan-client:
   mport: 8002 # agent manage port
   log_dir: "./log"
   application: "miner" # server identify.

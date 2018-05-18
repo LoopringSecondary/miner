@@ -74,7 +74,7 @@ title = "miner"
 [market_cap]
         base_url = "https://api.coinmarketcap.com/v1/ticker/?limit=0&convert=%s"
         currency = "USD"
-        duration = 5
+        duration = 500
         is_sync = false
         dust_value = 1.0
 

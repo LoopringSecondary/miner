@@ -35,10 +35,10 @@ type Market struct {
 	matcher      *TimingMatcher
 	protocolImpl *loopringaccessor.ProtocolAddress
 
-	TokenA      common.Address
-	TokenB      common.Address
-	AtoBOrders  map[common.Hash]*types.OrderState
-	BtoAOrders  map[common.Hash]*types.OrderState
+	TokenA     common.Address
+	TokenB     common.Address
+	AtoBOrders map[common.Hash]*types.OrderState
+	BtoAOrders map[common.Hash]*types.OrderState
 
 	AtoBOrderHashesExcludeNextRound []common.Hash
 	BtoAOrderHashesExcludeNextRound []common.Hash

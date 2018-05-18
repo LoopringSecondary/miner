@@ -25,15 +25,15 @@ import (
 	"github.com/Loopring/relay-cluster/accountmanager"
 	orderDao "github.com/Loopring/relay-cluster/dao"
 	"github.com/Loopring/relay-cluster/ordermanager"
+	"github.com/Loopring/relay-cluster/usermanager"
 	"github.com/Loopring/relay-lib/dao"
+	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/marketcap"
 	libmotan "github.com/Loopring/relay-lib/motan"
 	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"strings"
-	"github.com/Loopring/relay-cluster/usermanager"
-	"github.com/Loopring/relay-lib/log"
 )
 
 type Mode int
@@ -44,8 +44,8 @@ const (
 )
 
 type dataSource struct {
-	mode         Mode
-	orderView ordermanager.OrderViewer
+	mode        Mode
+	orderView   ordermanager.OrderViewer
 	motanClient *motan.Client
 }
 
@@ -72,9 +72,9 @@ func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allo
 		return accountmanager.GetBalanceAndAllowance(owner, token, spender)
 	case MOTAN:
 		req := &libmotan.AccountBalanceAndAllowanceReq{
-			Owner:owner,
-			Token:token,
-			Spender:spender,
+			Owner:   owner,
+			Token:   token,
+			Spender: spender,
 		}
 		res := &libmotan.AccountBalanceAndAllowanceRes{}
 		if err := source.motanClient.Call("getBalanceAndAllowance", []interface{}{req}, res); nil != err {
@@ -95,17 +95,17 @@ func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTi
 		orders = source.orderView.MinerOrders(protocol, tokenS, tokenB, length, reservedTime, startBlockNumber, endBlockNumber, filterOrderHashLists...)
 	case MOTAN:
 		req := &libmotan.MinerOrdersReq{
-			Protocol:protocol,
-			TokenS:tokenS,
-			TokenB:tokenB,
-			Length:length,
-			ReservedTime:reservedTime,
-			StartBlockNumber:startBlockNumber,
-			EndBlockNumber:endBlockNumber,
-			FilterOrderHashLists:filterOrderHashLists,
+			Protocol:             protocol,
+			TokenS:               tokenS,
+			TokenB:               tokenB,
+			Length:               length,
+			ReservedTime:         reservedTime,
+			StartBlockNumber:     startBlockNumber,
+			EndBlockNumber:       endBlockNumber,
+			FilterOrderHashLists: filterOrderHashLists,
 		}
 		res := &libmotan.MinerOrdersRes{}
-		if err := source.motanClient.Call("minerOrders", []interface{}{req}, res); nil != err {
+		if err := source.motanClient.Call("getMinerOrders", []interface{}{req}, res); nil != err {
 			log.Errorf("err:%s", err.Error())
 		} else {
 			orders = res.List

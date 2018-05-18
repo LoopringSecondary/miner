@@ -7,9 +7,14 @@ config/debug_tokens.json
 config/mainchain.toml
 config/docker.toml
 config/default_market.json
+config/debug.toml
+config/relay.toml
+config/test.toml
 test/*.toml
 startup.sh
 nameregistry.sh
 addparticipant.sh
 config/test_tokens.json
 nohup.out
+snapshot
+log

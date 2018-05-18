@@ -33,6 +33,7 @@ import (
 	"github.com/Loopring/relay-lib/marketutil"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"sync"
+	"github.com/Loopring/relay-lib/zklock"
 )
 
 type Node struct {
@@ -54,10 +55,13 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 	marketutil.Initialize(&n.globalConfig.MarketUtil)
 	n.registerMarketCap()
 	n.registerAccessor()
-	gasprice_evaluator.InitGasPriceEvaluator()
 	ks := keystore.NewKeyStore(n.globalConfig.Keystore.Keydir, keystore.StandardScryptN, keystore.StandardScryptP)
 	n.registerCrypto(ks)
 	n.registerMiner()
+	if _,err := zklock.Initialize(globalConfig.ZkLock); nil != err {
+		log.Fatalf("err:%s", err.Error())
+	}
+	gasprice_evaluator.InitGasPriceEvaluator()
 	datasource.Initialize(globalConfig.DataSource, globalConfig.Mysql, n.marketCapProvider)
 	return n
 }

@@ -25,10 +25,11 @@ import (
 	"math/big"
 
 	"fmt"
-	"github.com/Loopring/accessor/ethaccessor"
+	"github.com/Loopring/miner/config"
+	"github.com/Loopring/relay-lib/eth/gasprice_evaluator"
+	"github.com/Loopring/relay-lib/eth/loopringaccessor"
 	"github.com/Loopring/relay-lib/marketcap"
-	"github.com/Loopring/relay/config"
-	"github.com/Loopring/relay/types"
+	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -188,7 +189,7 @@ func (e *Evaluator) computeFeeOfRingAndOrder(ringState *types.Ring) error {
 	var err error
 	var feeReceiptLrcAvailableAmount *big.Rat
 	var lrcAddress common.Address
-	if impl, exists := ethaccessor.ProtocolAddresses()[ringState.Orders[0].OrderState.RawOrder.Protocol]; exists {
+	if impl, exists := loopringaccessor.ProtocolAddresses()[ringState.Orders[0].OrderState.RawOrder.Protocol]; exists {
 		var err error
 		lrcAddress = impl.LrcTokenAddress
 		//todo:the address transfer lrcreward should be msg.sender not feeReceipt
@@ -361,7 +362,7 @@ func (e *Evaluator) getLegalCurrency(tokenAddress common.Address, amount *big.Ra
 
 func (e *Evaluator) evaluateReceived(ringState *types.Ring) {
 	ringState.Received = big.NewRat(int64(0), int64(1))
-	ringState.GasPrice = ethaccessor.EstimateGasPrice(e.minGasPrice, e.maxGasPrice)
+	ringState.GasPrice = gasprice_evaluator.EstimateGasPrice(e.minGasPrice, e.maxGasPrice)
 	//log.Debugf("len(ringState.Orders):%d", len(ringState.Orders))
 	ringState.Gas = new(big.Int)
 	ringState.Gas.Set(e.gasUsedWithLength[len(ringState.Orders)])

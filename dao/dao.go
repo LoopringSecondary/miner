@@ -19,70 +19,24 @@
 package dao
 
 import (
-	"github.com/Loopring/relay/config"
-	"github.com/Loopring/relay/log"
-	"github.com/jinzhu/gorm"
+	"github.com/Loopring/relay-lib/dao"
+	"github.com/Loopring/relay-lib/log"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
-	"time"
 )
 
-type PageResult struct {
-	Data      []interface{} `json:"data"`
-	PageIndex int           `json:"pageIndex"`
-	PageSize  int           `json:"pageSize"`
-	Total     int           `json:"total"`
-}
-
 type RdsServiceImpl struct {
-	options config.MysqlOptions
-	db      *gorm.DB
+	dao.RdsServiceImpl
 }
 
-func NewRdsService(options config.MysqlOptions) *RdsServiceImpl {
-	impl := &RdsServiceImpl{}
-	impl.options = options
-
-	gorm.DefaultTableNameHandler = func(db *gorm.DB, defaultTableName string) string {
-		return options.TablePrefix + defaultTableName
-	}
-
-	url := options.User + ":" + options.Password + "@tcp(" + options.Hostname + ":" + options.Port + ")/" + options.DbName + "?charset=utf8&parseTime=True"
-	db, err := gorm.Open("mysql", url)
-	if err != nil {
-		log.Fatalf("mysql connection error:%s", err.Error())
-	}
-
-	db.DB().SetConnMaxLifetime(time.Duration(options.ConnMaxLifetime) * time.Second)
-	db.DB().SetMaxIdleConns(options.MaxIdleConnections)
-	db.DB().SetMaxOpenConns(options.MaxOpenConnections)
-
-	db.LogMode(options.Debug)
-
-	impl.db = db
-
-	return impl
-}
-
-func (s *RdsServiceImpl) Prepare() {
-	var tables []interface{}
-
-	// create tables if not exists
-	tables = append(tables, &Order{})
-	tables = append(tables, &Block{})
-	tables = append(tables, &RingMinedEvent{})
+func NewRdsService(options *dao.MysqlOptions) RdsServiceImpl {
+	rdsService := RdsServiceImpl{}
+	rdsService.RdsServiceImpl = dao.NewRdsService(options)
+	tables := []interface{}{}
 	tables = append(tables, &RingSubmitInfo{})
 	tables = append(tables, &FilledOrder{})
-
-	for _, t := range tables {
-		if ok := s.db.HasTable(t); !ok {
-			if err := s.db.CreateTable(t).Error; err != nil {
-				log.Fatalf("create mysql table error:%s", err.Error())
-			}
-		}
+	rdsService.RdsServiceImpl.SetTables(tables)
+	if err := rdsService.RdsServiceImpl.CreateTables(); nil != err {
+		log.Fatalf("err:%s", err.Error())
 	}
-
-	// auto migrate to keep schema update to date
-	// AutoMigrate will ONLY create tables, missing columns and missing indexes,
-	// and WON'T change existing column's type or delete unused columns to protect your data
-	s.db.AutoMigrate(tables...)
+	return rdsService
 }

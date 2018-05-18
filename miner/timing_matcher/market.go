@@ -20,9 +20,9 @@ package timing_matcher
 
 import (
 	"fmt"
-	"github.com/Loopring/accessor/ethaccessor"
+	"github.com/Loopring/miner/datasource"
 	"github.com/Loopring/miner/miner"
-	"github.com/Loopring/relay-cluster/ordermanager"
+	"github.com/Loopring/relay-lib/eth/loopringaccessor"
 	"github.com/Loopring/relay-lib/eventemitter"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
@@ -33,19 +33,32 @@ import (
 
 type Market struct {
 	matcher      *TimingMatcher
-	om           ordermanager.OrderManager
-	protocolImpl *ethaccessor.ProtocolAddress
+	protocolImpl *loopringaccessor.ProtocolAddress
 
-	TokenA     common.Address
-	TokenB     common.Address
-	AtoBOrders map[common.Hash]*types.OrderState
-	BtoAOrders map[common.Hash]*types.OrderState
+	TokenA      common.Address
+	TokenAPrice *big.Rat
+	TokenB      common.Address
+	TokenBPrice *big.Rat
+	AtoBOrders  map[common.Hash]*types.OrderState
+	BtoAOrders  map[common.Hash]*types.OrderState
 
 	AtoBOrderHashesExcludeNextRound []common.Hash
 	BtoAOrderHashesExcludeNextRound []common.Hash
 }
 
 func (market *Market) match() {
+	var err error
+	market.TokenAPrice, err = market.matcher.marketCapProvider.LegalCurrencyValue(market.TokenA, big.NewRat(int64(1), int64(0)))
+	if nil != err {
+		log.Errorf("err:%s", err.Error())
+		return
+	}
+	market.TokenBPrice, err = market.matcher.marketCapProvider.LegalCurrencyValue(market.TokenB, big.NewRat(int64(1), int64(0)))
+	if nil != err {
+		log.Errorf("err:%s", err.Error())
+		return
+	}
+
 	market.getOrdersForMatching(market.protocolImpl.DelegateAddress)
 	matchedOrderHashes := make(map[common.Hash]bool) //true:fullfilled, false:partfilled
 	ringSubmitInfos := []*types.RingSubmitInfo{}
@@ -112,7 +125,7 @@ func (market *Market) match() {
 			if ringForSubmit.RawRing.Received.Sign() > 0 {
 				for _, filledOrder := range ringForSubmit.RawRing.Orders {
 					orderState := market.reduceAmountAfterFilled(filledOrder)
-					isFullFilled := market.om.IsOrderFullFinished(orderState)
+					isFullFilled := market.isOrderFinished(orderState)
 					matchedOrderHashes[filledOrder.OrderState.RawOrder.Hash] = isFullFilled
 					//market.matcher.rounds.AppendFilledOrderToCurrent(filledOrder, ringForSubmit.RawRing.Hash)
 
@@ -191,18 +204,18 @@ func (market *Market) getOrdersForMatching(delegateAddress common.Address) {
 	currentRoundNumber := market.matcher.lastRoundNumber.Int64()
 	deleyedNumber := market.matcher.delayedNumber + currentRoundNumber
 
-	atoBOrders := market.om.MinerOrders(delegateAddress, market.TokenA, market.TokenB, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: market.AtoBOrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
+	atoBOrders := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: market.AtoBOrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
 
 	if len(atoBOrders) < market.matcher.roundOrderCount {
 		orderCount := market.matcher.roundOrderCount - len(atoBOrders)
-		orders := market.om.MinerOrders(delegateAddress, market.TokenA, market.TokenB, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
+		orders := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
 		atoBOrders = append(atoBOrders, orders...)
 	}
 
-	btoAOrders := market.om.MinerOrders(delegateAddress, market.TokenB, market.TokenA, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: market.BtoAOrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
+	btoAOrders := datasource.MinerOrders(delegateAddress, market.TokenB, market.TokenA, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: market.BtoAOrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
 	if len(btoAOrders) < market.matcher.roundOrderCount {
 		orderCount := market.matcher.roundOrderCount - len(btoAOrders)
-		orders := market.om.MinerOrders(delegateAddress, market.TokenB, market.TokenA, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
+		orders := datasource.MinerOrders(delegateAddress, market.TokenB, market.TokenA, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
 		btoAOrders = append(btoAOrders, orders...)
 	}
 
@@ -212,7 +225,7 @@ func (market *Market) getOrdersForMatching(delegateAddress common.Address) {
 
 	for _, order := range atoBOrders {
 		market.reduceRemainedAmountBeforeMatch(order)
-		if !market.om.IsOrderFullFinished(order) {
+		if !market.isOrderFinished(order) {
 			market.AtoBOrders[order.RawOrder.Hash] = order
 		} else {
 			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, order.RawOrder.Hash)
@@ -222,7 +235,7 @@ func (market *Market) getOrdersForMatching(delegateAddress common.Address) {
 
 	for _, order := range btoAOrders {
 		market.reduceRemainedAmountBeforeMatch(order)
-		if !market.om.IsOrderFullFinished(order) {
+		if !market.isOrderFinished(order) {
 			market.BtoAOrders[order.RawOrder.Hash] = order
 		} else {
 			market.BtoAOrderHashesExcludeNextRound = append(market.BtoAOrderHashesExcludeNextRound, order.RawOrder.Hash)
@@ -304,7 +317,7 @@ func (market *Market) generateFilledOrder(order *types.OrderState) (*types.Fille
 		return nil, fmt.Errorf("owner:%s token:%s balance or allowance is zero", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
 	}
 	//todo:
-	if market.om.IsValueDusted(order.RawOrder.TokenS, tokenSBalance) {
+	if market.isOrderFinished(order) {
 		return nil, fmt.Errorf("owner:%s token:%s balance or allowance is not enough", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
 	}
 	return types.ConvertOrderStateToFilledOrder(*order, lrcTokenBalance, tokenSBalance, market.protocolImpl.LrcTokenAddress), nil
@@ -331,10 +344,9 @@ func (market *Market) generateRingSubmitInfo(orders ...*types.OrderState) (*type
 	}
 }
 
-func NewMarket(protocolAddress *ethaccessor.ProtocolAddress, tokenS, tokenB common.Address, matcher *TimingMatcher, om ordermanager.OrderManager) *Market {
+func NewMarket(protocolAddress *loopringaccessor.ProtocolAddress, tokenS, tokenB common.Address, matcher *TimingMatcher) *Market {
 
 	m := &Market{}
-	m.om = om
 	m.protocolImpl = protocolAddress
 	m.matcher = matcher
 	m.TokenA = tokenS
@@ -346,4 +358,16 @@ func NewMarket(protocolAddress *ethaccessor.ProtocolAddress, tokenS, tokenB comm
 
 func ratToInt(rat *big.Rat) *big.Int {
 	return new(big.Int).Div(rat.Num(), rat.Denom())
+}
+
+func (market *Market) isOrderFinished(orderState *types.OrderState) bool {
+	var tokenSprice, tokenBprice *big.Rat
+	if orderState.RawOrder.TokenS == market.TokenB {
+		tokenSprice = new(big.Rat).Set(market.TokenBPrice)
+		tokenBprice = new(big.Rat).Set(market.TokenAPrice)
+	} else {
+		tokenBprice = new(big.Rat).Set(market.TokenBPrice)
+		tokenSprice = new(big.Rat).Set(market.TokenAPrice)
+	}
+	return orderState.IsOrderFullFinished(tokenSprice, tokenBprice, market.matcher.dustValue)
 }

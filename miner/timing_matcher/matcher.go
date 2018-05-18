@@ -20,16 +20,16 @@ package timing_matcher
 
 import (
 	"github.com/Loopring/miner/miner"
-	"github.com/Loopring/relay-cluster/ordermanager"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 
-	"github.com/Loopring/accessor/ethaccessor"
+	"github.com/Loopring/miner/config"
 	"github.com/Loopring/miner/dao"
-	marketLib "github.com/Loopring/relay-cluster/market"
+	"github.com/Loopring/miner/datasource"
+	"github.com/Loopring/relay-lib/eth/loopringaccessor"
 	"github.com/Loopring/relay-lib/log"
+	"github.com/Loopring/relay-lib/marketcap"
 	marketUtilLib "github.com/Loopring/relay-lib/marketutil"
-	"github.com/Loopring/relay/config"
 	"strings"
 )
 
@@ -39,30 +39,31 @@ import (
 
 type TimingMatcher struct {
 	//rounds          *RoundStates
-	markets         []*Market
-	submitter       *miner.RingSubmitter
-	evaluator       *miner.Evaluator
-	lastRoundNumber *big.Int
-	duration        *big.Int
-	lagBlocks       int64
-	roundOrderCount int
-	reservedTime    int64
-	maxFailedCount  int64
+	markets           []*Market
+	submitter         *miner.RingSubmitter
+	evaluator         *miner.Evaluator
+	lastRoundNumber   *big.Int
+	duration          *big.Int
+	lagBlocks         int64
+	roundOrderCount   int
+	reservedTime      int64
+	maxFailedCount    int64
+	dustValue         *big.Rat
+	marketCapProvider marketcap.MarketCapProvider
 
 	maxCacheRoundsLength int
 	delayedNumber        int64
-	accountManager       *marketLib.AccountManager
 	isOrdersReady        bool
-	db                   dao.RdsService
+	db                   dao.RdsServiceImpl
 
 	stopFuncs []func()
 }
 
-func NewTimingMatcher(matcherOptions *config.TimingMatcher, submitter *miner.RingSubmitter, evaluator *miner.Evaluator, om ordermanager.OrderManager, accountManager *marketLib.AccountManager, rds dao.RdsService) *TimingMatcher {
+func NewTimingMatcher(matcherOptions *config.TimingMatcher, submitter *miner.RingSubmitter, evaluator *miner.Evaluator, rds dao.RdsServiceImpl, marketcapProvider marketcap.MarketCapProvider) *TimingMatcher {
 	matcher := &TimingMatcher{}
 	matcher.submitter = submitter
 	matcher.evaluator = evaluator
-	matcher.accountManager = accountManager
+	matcher.marketCapProvider = marketcapProvider
 	matcher.roundOrderCount = matcherOptions.RoundOrdersCount
 	//matcher.rounds = NewRoundStates(matcherOptions.MaxCacheRoundsLength)
 	matcher.isOrdersReady = false
@@ -96,10 +97,9 @@ func NewTimingMatcher(matcherOptions *config.TimingMatcher, submitter *miner.Rin
 			}
 		}
 		if !inited {
-			for _, protocolAddress := range ethaccessor.ProtocolAddresses() {
+			for _, protocolAddress := range loopringaccessor.ProtocolAddresses() {
 				m := &Market{}
 				m.protocolImpl = protocolAddress
-				m.om = om
 				m.matcher = matcher
 				m.TokenA = pair.TokenS
 				m.TokenB = pair.TokenB
@@ -159,7 +159,7 @@ func (matcher *TimingMatcher) Stop() {
 
 func (matcher *TimingMatcher) GetAccountAvailableAmount(address, tokenAddress, spender common.Address) (*big.Rat, error) {
 	//log.Debugf("address: %s , token: %s , spender: %s", address.Hex(), tokenAddress.Hex(), spender.Hex())
-	if balance, allowance, err := matcher.accountManager.GetBalanceAndAllowance(address, tokenAddress, spender); nil != err {
+	if balance, allowance, err := datasource.GetBalanceAndAllowance(address, tokenAddress, spender); nil != err {
 		return nil, err
 	} else {
 		availableAmount := new(big.Rat).SetInt(balance)

@@ -20,12 +20,18 @@ package config
 
 import (
 	"errors"
-	"math/big"
 	"os"
 	"reflect"
-	"strconv"
-	"strings"
 
+	"github.com/Loopring/relay-cluster/accountmanager"
+	"github.com/Loopring/relay-cluster/ordermanager"
+	"github.com/Loopring/relay-lib/cache/redis"
+	"github.com/Loopring/relay-lib/dao"
+	"github.com/Loopring/relay-lib/eth/accessor"
+	"github.com/Loopring/relay-lib/eth/loopringaccessor"
+	"github.com/Loopring/relay-lib/marketcap"
+	"github.com/Loopring/relay-lib/marketutil"
+	"github.com/Loopring/relay-lib/motan"
 	"github.com/naoina/toml"
 	"go.uber.org/zap"
 )
@@ -43,7 +49,6 @@ func LoadConfig(file string) *GlobalConfig {
 	defer io.Close()
 
 	c := &GlobalConfig{}
-	c.defaultConfig()
 	if err := toml.NewDecoder(io).Decode(c); err != nil {
 		panic(err)
 	}
@@ -65,85 +70,31 @@ func LoadConfig(file string) *GlobalConfig {
 }
 
 type GlobalConfig struct {
-	Title string `required:"true"`
-	Mode  string `required:"true"`
-	Owner struct {
-		Name string
-	}
-	Mysql          MysqlOptions
-	Redis          RedisOptions
-	Ipfs           IpfsOptions
-	Jsonrpc        JsonrpcOptions
-	Websocket      WebsocketOptions
-	GatewayFilters GatewayFiltersOptions
-	OrderManager   OrderManagerOptions
-	Gateway        GateWayOptions
-	Accessor       AccessorOptions
-	Extractor      ExtractorOptions
-	Common         CommonOptions
-	Miner          MinerOptions
-	Log            LogOptions
-	Keystore       KeyStoreOptions
-	Market         MarketOptions
-	MarketCap      MarketCapOptions
-	UserManager    UserManagerOptions
-	AccountManager AccountManagerOptions
+	Title            string `required:"true"`
+	Mysql            *dao.MysqlOptions
+	Redis            redis.RedisOptions
+	Accessor         accessor.AccessorOptions
+	LoopringAccessor loopringaccessor.LoopringProtocolOptions
+	Miner            MinerOptions
+	Log              zap.Config
+	Keystore         KeyStoreOptions
+	MarketCap        marketcap.MarketCapOptions
+	MarketUtil       marketutil.MarketOptions
+
+	DataSource DataSource
 }
 
-type JsonrpcOptions struct {
-	Port string
-}
-
-type WebsocketOptions struct {
-	Port string
-}
-
-func (c *GlobalConfig) defaultConfig() {
-
-}
-
-type OrderManagerOptions struct {
-	CutoffCacheExpireTime int64
-	CutoffCacheCleanTime  int64
-	DustOrderValue        int64
-}
-
-type AccessorOptions struct {
-	RawUrls           []string `required:"true"`
-	FetchTxRetryCount int
-}
-
-type ExtractorOptions struct {
-	StartBlockNumber   *big.Int
-	EndBlockNumber     *big.Int
-	ConfirmBlockNumber uint64
-	ForkWaitingTime    int64
-	Debug              bool
-	Open               bool
+type DataSource struct {
+	Type           string
+	OrderManager   ordermanager.OrderManagerOptions
+	AccountManager accountmanager.AccountManagerOptions
+	MotanClient    motan.MotanClientOptions
 }
 
 type KeyStoreOptions struct {
 	Keydir  string
 	ScryptN int
 	ScryptP int
-}
-
-type ProtocolOptions struct {
-	Address          map[string]string
-	ImplAbi          string
-	DelegateAbi      string
-	TokenRegistryAbi string
-}
-
-type CommonOptions struct {
-	Erc20Abi        string
-	WethAbi         string
-	ProtocolImpl    ProtocolOptions  `required:"true"`
-	OrderMinAmounts map[string]int64 //最小的订单金额，低于该数，则终止匹配订单，每个token的值不同
-}
-
-type LogOptions struct {
-	ZapOpts zap.Config
 }
 
 type TimingMatcher struct {
@@ -181,15 +132,6 @@ type MinerOptions struct {
 	MinGasLimit           int64
 	MaxGasLimit           int64
 	FeeReceipt            string
-}
-
-type RedisOptions struct {
-	Host        string
-	Port        string
-	Password    string
-	IdleTimeout int
-	MaxIdle     int
-	MaxActive   int
 }
 
 func Validator(cv reflect.Value) (bool, error) {

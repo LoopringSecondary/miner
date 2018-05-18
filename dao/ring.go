@@ -70,15 +70,15 @@ func (daoFilledOrder *FilledOrder) ConvertDown(filledOrder *types.FilledOrder, r
 }
 
 func (daoFilledOrder *FilledOrder) ConvertUp(filledOrder *types.FilledOrder, rds RdsService) error {
-	if nil != rds {
-		daoOrderState, err := rds.GetOrderByHash(common.HexToHash(daoFilledOrder.OrderHash))
-		if nil != err {
-			return err
-		}
-		orderState := &types.OrderState{}
-		daoOrderState.ConvertUp(orderState)
-		filledOrder.OrderState = *orderState
-	}
+	//if nil != rds {
+	//	daoOrderState, err := rds.GetOrderByHash(common.HexToHash(daoFilledOrder.OrderHash))
+	//	if nil != err {
+	//		return err
+	//	}
+	//	orderState := &types.OrderState{}
+	//	daoOrderState.ConvertUp(orderState)
+	//	filledOrder.OrderState = *orderState
+	//}
 	filledOrder.FeeSelection = daoFilledOrder.FeeSelection
 	filledOrder.RateAmountS = new(big.Rat)
 	filledOrder.RateAmountS.SetString(daoFilledOrder.RateAmountS)
@@ -111,7 +111,7 @@ func (s *RdsServiceImpl) GetFilledOrderByRinghash(ringhash common.Hash) ([]*Fill
 		err          error
 	)
 
-	err = s.db.Where("ringhash = ?", ringhash.Hex()).
+	err = s.Db.Where("ringhash = ?", ringhash.Hex()).
 		Find(&filledOrders).
 		Error
 
@@ -204,10 +204,10 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 		"block_number":      getBigIntString(submitResult.BlockNumber),
 		"protocol_used_gas": getBigIntString(submitResult.UsedGas),
 	}
-	if nil != submitResult.Err {
-		items["err"] = submitResult.Err.Error()
+	if "" != submitResult.Err {
+		items["err"] = submitResult.Err
 	}
-	dbForUpdate := s.db.Model(&RingSubmitInfo{}).Where("ringhash = ? and protocol_tx_hash = ? ", submitResult.RingHash.Hex(), submitResult.TxHash.Hex())
+	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("ringhash = ? and protocol_tx_hash = ? ", submitResult.RingHash.Hex(), submitResult.TxHash.Hex())
 	return dbForUpdate.Update(items).Error
 }
 
@@ -217,7 +217,7 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 //}
 
 func (s *RdsServiceImpl) GetRingForSubmitByHash(ringhash common.Hash) (ringForSubmit RingSubmitInfo, err error) {
-	err = s.db.Where("ringhash = ? ", ringhash.Hex()).First(&ringForSubmit).Error
+	err = s.Db.Where("ringhash = ? ", ringhash.Hex()).First(&ringForSubmit).Error
 	return
 }
 
@@ -227,7 +227,7 @@ func (s *RdsServiceImpl) GetRingHashesByTxHash(txHash common.Hash) ([]*RingSubmi
 		infos []*RingSubmitInfo
 	)
 
-	err = s.db.Where("protocol_tx_hash = ? ", txHash.Hex()).
+	err = s.Db.Where("protocol_tx_hash = ? ", txHash.Hex()).
 		Find(&infos).
 		Error
 
@@ -235,6 +235,6 @@ func (s *RdsServiceImpl) GetRingHashesByTxHash(txHash common.Hash) ([]*RingSubmi
 }
 
 func (s *RdsServiceImpl) UpdateRingSubmitInfoSubmitUsedGas(txHash string, usedGas *big.Int) error {
-	dbForUpdate := s.db.Model(&RingSubmitInfo{}).Where("protocol_tx_hash = ?", txHash)
+	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("protocol_tx_hash = ?", txHash)
 	return dbForUpdate.Update("protocol_used_gas", getBigIntString(usedGas)).Error
 }

@@ -19,8 +19,6 @@
 package timing_matcher
 
 import (
-	"github.com/Loopring/accessor/ethaccessor"
-	"github.com/Loopring/miner/dao"
 	"github.com/Loopring/relay-lib/eventemitter"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
@@ -81,23 +79,22 @@ func (matcher *TimingMatcher) listenOrderReady() {
 
 	readyFunc := func() {
 		var err error
-		var ethBlockNumber types.Big
-		if err = ethaccessor.BlockNumber(&ethBlockNumber); nil == err {
-			var block *dao.Block
-			if block, err = matcher.db.FindLatestBlock(); nil == err {
-				log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t, %d, %d", matcher.isOrdersReady, block.BlockNumber, ethBlockNumber.Int64())
-				if ethBlockNumber.Int64() > (block.BlockNumber + matcher.lagBlocks) {
-					matcher.isOrdersReady = false
-				} else {
-					matcher.isOrdersReady = true
-				}
-			}
-		}
+		//var ethBlockNumber types.Big
+		//if err = accessor.BlockNumber(&ethBlockNumber); nil == err {
+		//	var block *dao.Block
+		//	if block, err = matcher.db.FindLatestBlock(); nil == err {
+		//		log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t, %d, %d", matcher.isOrdersReady, block.BlockNumber, ethBlockNumber.Int64())
+		//		if ethBlockNumber.Int64() > (block.BlockNumber + matcher.lagBlocks) {
+		//			matcher.isOrdersReady = false
+		//		} else {
+		//			matcher.isOrdersReady = true
+		//		}
+		//	}
+		//}
 		if nil != err {
 			matcher.isOrdersReady = false
 		}
 		log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t", matcher.isOrdersReady)
-
 	}
 
 	go func() {

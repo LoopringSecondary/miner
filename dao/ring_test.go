@@ -19,13 +19,14 @@
 package dao_test
 
 import (
-	"github.com/Loopring/relay/config"
-	"github.com/Loopring/relay/crypto"
-	"github.com/Loopring/relay/dao"
-	"github.com/Loopring/relay/log"
+	"github.com/Loopring/miner/config"
+	"github.com/Loopring/miner/dao"
+	"github.com/Loopring/relay-lib/crypto"
+	"github.com/Loopring/relay-lib/log"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/leanote/leanote/app/info"
 	"os"
 	"strings"
 	"testing"
@@ -52,7 +53,6 @@ func TestNewRing(t *testing.T) {
 	c := crypto.NewKSCrypto(false, ks)
 	crypto.Initialize(c)
 	s := dao.NewRdsService(cfg.Mysql)
-	s.Prepare()
 
 	info := &dao.RingSubmitInfo{}
 

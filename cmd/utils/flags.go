@@ -21,15 +21,11 @@ package utils
 import (
 	"reflect"
 
-	"github.com/Loopring/relay/config"
+	"github.com/Loopring/miner/config"
 	"gopkg.in/urfave/cli.v1"
 )
 
 var (
-	ModeFlag = cli.StringFlag{
-		Name:  "mode",
-		Usage: "the mode that will be run, it can be set by relay, miner or full",
-	}
 	UnlockFlag = cli.StringFlag{
 		Name:  "unlocks",
 		Usage: "the list of accounts to unlock",
@@ -46,7 +42,6 @@ func GlobalFlags() []cli.Flag {
 			Name:  "config,c",
 			Usage: "config file",
 		},
-		ModeFlag,
 		UnlockFlag,
 		PasswordsFlag,
 	}
@@ -76,14 +71,6 @@ func mergeMinerConfig(ctx *cli.Context, minerOpts *config.MinerOptions) {
 	minerOpts.WalletSplit = float64(0.8)
 }
 
-func mergeModeConfig(ctx *cli.Context, globalConfig *config.GlobalConfig) {
-	if ctx.IsSet(ModeFlag.Name) {
-		globalConfig.Mode = ctx.String(ModeFlag.Name)
-	} else {
-		globalConfig.Mode = "full"
-	}
-}
-
 func SetGlobalConfig(ctx *cli.Context) *config.GlobalConfig {
 	file := ""
 	if ctx.IsSet("config") {
@@ -91,8 +78,6 @@ func SetGlobalConfig(ctx *cli.Context) *config.GlobalConfig {
 	}
 	globalConfig := config.LoadConfig(file)
 	mergeMinerConfig(ctx, &globalConfig.Miner)
-
-	mergeModeConfig(ctx, globalConfig)
 
 	if _, err := config.Validator(reflect.ValueOf(globalConfig).Elem()); nil != err {
 		panic(err)

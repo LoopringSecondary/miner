@@ -25,11 +25,11 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/Loopring/relay/cmd/utils"
-	"github.com/Loopring/relay/config"
-	"github.com/Loopring/relay/crypto"
-	"github.com/Loopring/relay/log"
-	"github.com/Loopring/relay/node"
+	"github.com/Loopring/miner/cmd/utils"
+	"github.com/Loopring/miner/config"
+	"github.com/Loopring/miner/node"
+	"github.com/Loopring/relay-lib/crypto"
+	"github.com/Loopring/relay-lib/log"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -64,7 +64,7 @@ func startNode(ctx *cli.Context) error {
 		}
 	}()
 
-	n = node.NewNode(logger, globalConfig)
+	n = node.NewNode(globalConfig)
 
 	unlockAccount(ctx, globalConfig)
 
@@ -77,62 +77,60 @@ func startNode(ctx *cli.Context) error {
 }
 
 func unlockAccount(ctx *cli.Context, globalConfig *config.GlobalConfig) {
-	if "full" == globalConfig.Mode || "miner" == globalConfig.Mode {
-		unlockAccs := []accounts.Account{}
-		minerAccs := []string{}
-		if ctx.IsSet(utils.UnlockFlag.Name) {
-			unlocks := strings.Split(ctx.String(utils.UnlockFlag.Name), ",")
-			for _, acc := range unlocks {
-				if common.IsHexAddress(acc) {
-					unlockAccs = append(unlockAccs, accounts.Account{Address: common.HexToAddress(acc)})
-				} else {
-					utils.ExitWithErr(ctx.App.Writer, errors.New(acc+" is not a HexAddress"))
-				}
-			}
-		}
-		for _, addr := range globalConfig.Miner.NormalMiners {
-			minerAccs = append(minerAccs, addr.Address)
-		}
-		for _, addr := range globalConfig.Miner.PercentMiners {
-			minerAccs = append(minerAccs, addr.Address)
-		}
-		//todo:it should not appear here, move it.
-		if len(minerAccs) <= 0 {
-			utils.ExitWithErr(ctx.App.Writer, fmt.Errorf("require a address as miner to sign and submit ring when running as miner"))
-		}
-		for _, addr := range minerAccs {
-			unlocked := false
-			for _, unlockAcc := range unlockAccs {
-				if strings.ToLower(unlockAcc.Address.Hex()) == strings.ToLower(addr) {
-					unlocked = true
-				}
-			}
-			if !unlocked {
-				utils.ExitWithErr(ctx.App.Writer, fmt.Errorf("the address:%s used to mine ring must be unlocked ", addr))
-			}
-		}
-
-		var passwords []string
-		if ctx.IsSet(utils.PasswordsFlag.Name) {
-			passwords = strings.Split(ctx.String(utils.PasswordsFlag.Name), ",")
-			if len(passwords) != len(unlockAccs) {
-				utils.ExitWithErr(ctx.App.Writer, errors.New("the count of passwords and unlocks not match "))
-			}
-		}
-		for idx, acc := range unlockAccs {
-			var passphrase string
-			if ctx.IsSet(utils.PasswordsFlag.Name) {
-				passphrase = passwords[idx]
-				if err := crypto.UnlockKSAccount(acc, passphrase); nil != err {
-					if keystore.ErrNoMatch == err {
-						log.Fatalf("err:", err.Error())
-					} else {
-						utils.ExitWithErr(ctx.App.Writer, errors.New("failed to unlock address:"+acc.Address.Hex()))
-					}
-				}
+	unlockAccs := []accounts.Account{}
+	minerAccs := []string{}
+	if ctx.IsSet(utils.UnlockFlag.Name) {
+		unlocks := strings.Split(ctx.String(utils.UnlockFlag.Name), ",")
+		for _, acc := range unlocks {
+			if common.IsHexAddress(acc) {
+				unlockAccs = append(unlockAccs, accounts.Account{Address: common.HexToAddress(acc)})
 			} else {
-				unlockAccountFromTerminal(acc, ctx)
+				utils.ExitWithErr(ctx.App.Writer, errors.New(acc+" is not a HexAddress"))
 			}
+		}
+	}
+	for _, addr := range globalConfig.Miner.NormalMiners {
+		minerAccs = append(minerAccs, addr.Address)
+	}
+	for _, addr := range globalConfig.Miner.PercentMiners {
+		minerAccs = append(minerAccs, addr.Address)
+	}
+	//todo:it should not appear here, move it.
+	if len(minerAccs) <= 0 {
+		utils.ExitWithErr(ctx.App.Writer, fmt.Errorf("require a address as miner to sign and submit ring when running as miner"))
+	}
+	for _, addr := range minerAccs {
+		unlocked := false
+		for _, unlockAcc := range unlockAccs {
+			if strings.ToLower(unlockAcc.Address.Hex()) == strings.ToLower(addr) {
+				unlocked = true
+			}
+		}
+		if !unlocked {
+			utils.ExitWithErr(ctx.App.Writer, fmt.Errorf("the address:%s used to mine ring must be unlocked ", addr))
+		}
+	}
+
+	var passwords []string
+	if ctx.IsSet(utils.PasswordsFlag.Name) {
+		passwords = strings.Split(ctx.String(utils.PasswordsFlag.Name), ",")
+		if len(passwords) != len(unlockAccs) {
+			utils.ExitWithErr(ctx.App.Writer, errors.New("the count of passwords and unlocks not match "))
+		}
+	}
+	for idx, acc := range unlockAccs {
+		var passphrase string
+		if ctx.IsSet(utils.PasswordsFlag.Name) {
+			passphrase = passwords[idx]
+			if err := crypto.UnlockKSAccount(acc, passphrase); nil != err {
+				if keystore.ErrNoMatch == err {
+					log.Fatalf("err:", err.Error())
+				} else {
+					utils.ExitWithErr(ctx.App.Writer, errors.New("failed to unlock address:"+acc.Address.Hex()))
+				}
+			}
+		} else {
+			unlockAccountFromTerminal(acc, ctx)
 		}
 	}
 }

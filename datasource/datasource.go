@@ -32,7 +32,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"strings"
-	"qiniupkg.com/x/log.v7"
+	"github.com/Loopring/relay-cluster/usermanager"
+	"github.com/Loopring/relay-lib/log"
 )
 
 type Mode int
@@ -44,8 +45,7 @@ const (
 
 type dataSource struct {
 	mode         Mode
-	orderManager ordermanager.OrderManager
-
+	orderView ordermanager.OrderViewer
 	motanClient *motan.Client
 }
 
@@ -53,10 +53,13 @@ var source dataSource
 
 func Initialize(options config.DataSource, rdsOptions *dao.MysqlOptions, marketcapProvider marketcap.MarketCapProvider) {
 	source = dataSource{}
+	println("@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 	if "LOCAL" == strings.ToUpper(options.Type) {
+		println("##################")
 		source.mode = LOCAL
 		orderRds := orderDao.NewDb(rdsOptions)
-		source.orderManager = ordermanager.NewOrderManager(&options.OrderManager, orderRds, marketcapProvider)
+		um := &usermanager.UserManagerImpl{}
+		source.orderView = ordermanager.NewOrderViewer(&options.OrderManager, orderRds, marketcapProvider, um)
 		accountmanager.Initialize(&options.AccountManager, []string{})
 	} else {
 		source.mode = MOTAN
@@ -67,7 +70,7 @@ func Initialize(options config.DataSource, rdsOptions *dao.MysqlOptions, marketc
 func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allowance *big.Int, err error) {
 	switch source.mode {
 	case LOCAL:
-		return nil, nil, errors.New("")
+		return accountmanager.GetBalanceAndAllowance(owner, token, spender)
 	case MOTAN:
 		req := &libmotan.AccountBalanceAndAllowanceReq{
 			Owner:owner,
@@ -88,7 +91,7 @@ func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTi
 	orders := []*types.OrderState{}
 	switch source.mode {
 	case LOCAL:
-		return []*types.OrderState{}
+		orders = source.orderView.MinerOrders(protocol, tokenS, tokenB, length, reservedTime, startBlockNumber, endBlockNumber, filterOrderHashLists...)
 	case MOTAN:
 		req := &libmotan.MinerOrdersReq{
 			Protocol:protocol,

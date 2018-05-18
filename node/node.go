@@ -58,6 +58,7 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 	ks := keystore.NewKeyStore(n.globalConfig.Keystore.Keydir, keystore.StandardScryptN, keystore.StandardScryptP)
 	n.registerCrypto(ks)
 	n.registerMiner()
+	datasource.Initialize(globalConfig.DataSource, globalConfig.Mysql, n.marketCapProvider)
 	return n
 }
 

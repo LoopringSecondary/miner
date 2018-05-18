@@ -39,7 +39,7 @@ import (
 func LoadConfig(file string) *GlobalConfig {
 	if "" == file {
 		dir, _ := os.Getwd()
-		file = dir + "/config/relay.toml"
+		file = dir + "/config/miner.toml"
 	}
 
 	io, err := os.Open(file)
@@ -122,7 +122,6 @@ type NormalMinerAddress struct {
 
 type MinerOptions struct {
 	RingMaxLength         int `` //recommended value:4
-	Name                  string
 	Subsidy               float64
 	WalletSplit           float64
 	NormalMiners          []NormalMinerAddress  //

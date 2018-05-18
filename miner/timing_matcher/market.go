@@ -36,9 +36,7 @@ type Market struct {
 	protocolImpl *loopringaccessor.ProtocolAddress
 
 	TokenA      common.Address
-	TokenAPrice *big.Rat
 	TokenB      common.Address
-	TokenBPrice *big.Rat
 	AtoBOrders  map[common.Hash]*types.OrderState
 	BtoAOrders  map[common.Hash]*types.OrderState
 
@@ -47,18 +45,6 @@ type Market struct {
 }
 
 func (market *Market) match() {
-	var err error
-	market.TokenAPrice, err = market.matcher.marketCapProvider.LegalCurrencyValue(market.TokenA, big.NewRat(int64(1), int64(0)))
-	if nil != err {
-		log.Errorf("err:%s", err.Error())
-		return
-	}
-	market.TokenBPrice, err = market.matcher.marketCapProvider.LegalCurrencyValue(market.TokenB, big.NewRat(int64(1), int64(0)))
-	if nil != err {
-		log.Errorf("err:%s", err.Error())
-		return
-	}
-
 	market.getOrdersForMatching(market.protocolImpl.DelegateAddress)
 	matchedOrderHashes := make(map[common.Hash]bool) //true:fullfilled, false:partfilled
 	ringSubmitInfos := []*types.RingSubmitInfo{}
@@ -361,13 +347,5 @@ func ratToInt(rat *big.Rat) *big.Int {
 }
 
 func (market *Market) isOrderFinished(orderState *types.OrderState) bool {
-	var tokenSprice, tokenBprice *big.Rat
-	if orderState.RawOrder.TokenS == market.TokenB {
-		tokenSprice = new(big.Rat).Set(market.TokenBPrice)
-		tokenBprice = new(big.Rat).Set(market.TokenAPrice)
-	} else {
-		tokenBprice = new(big.Rat).Set(market.TokenBPrice)
-		tokenSprice = new(big.Rat).Set(market.TokenAPrice)
-	}
-	return orderState.IsOrderFullFinished(tokenSprice, tokenBprice, market.matcher.dustValue)
+	return market.matcher.marketCapProvider.IsOrderValueDust(orderState)
 }

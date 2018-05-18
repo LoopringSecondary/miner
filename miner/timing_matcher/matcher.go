@@ -48,7 +48,6 @@ type TimingMatcher struct {
 	roundOrderCount   int
 	reservedTime      int64
 	maxFailedCount    int64
-	dustValue         *big.Rat
 	marketCapProvider marketcap.MarketCapProvider
 
 	maxCacheRoundsLength int

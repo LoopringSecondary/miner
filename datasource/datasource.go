@@ -100,7 +100,7 @@ func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTi
 		orders = source.orderView.MinerOrders(protocol, tokenS, tokenB, length, reservedTime, startBlockNumber, endBlockNumber, filterOrderHashLists...)
 	case MOTAN:
 		req := &libmotan.MinerOrdersReq{
-			Protocol:             protocol,
+			Delegate:             protocol,
 			TokenS:               tokenS,
 			TokenB:               tokenB,
 			Length:               length,

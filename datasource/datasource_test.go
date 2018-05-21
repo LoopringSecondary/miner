@@ -19,17 +19,16 @@
 package datasource_test
 
 import (
-	"testing"
-	"github.com/Loopring/miner/datasource"
+	"encoding/json"
 	"github.com/Loopring/miner/config"
-	"github.com/Loopring/relay-lib/motan"
+	"github.com/Loopring/miner/datasource"
+	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/marketcap"
+	"github.com/Loopring/relay-lib/motan"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap"
-	"encoding/json"
-	"github.com/Loopring/relay-lib/log"
+	"testing"
 )
-
 
 func init() {
 	logConfig := `{
@@ -63,12 +62,11 @@ func init() {
 }
 
 func TestGetBalanceAndAllowance(t *testing.T) {
-	if balance,allowance, err := datasource.GetBalanceAndAllowance(common.HexToAddress("0x750aD4351bB728ceC7d639A9511F9D6488f1E259"), common.HexToAddress("0xe1C541BA900cbf212Bc830a5aaF88aB499931751"), common.HexToAddress("0xa0aF16eDD397d9e826295df9E564b10D57E3C457")); nil != err {
+	if balance, allowance, err := datasource.GetBalanceAndAllowance(common.HexToAddress("0x750aD4351bB728ceC7d639A9511F9D6488f1E259"), common.HexToAddress("0xe1C541BA900cbf212Bc830a5aaF88aB499931751"), common.HexToAddress("0xa0aF16eDD397d9e826295df9E564b10D57E3C457")); nil != err {
 		t.Fatalf("err:%s", err.Error())
 	} else {
 		t.Logf("balance:%s, allowance:%s", balance.String(), allowance.String())
 	}
-
 
 }
 
@@ -81,7 +79,7 @@ func TestMinerOrders(t *testing.T) {
 	startNumber := int64(0)
 	endNumber := int64(1000000000000)
 	orders := datasource.MinerOrders(delegateAddress, tokenS, tokenB, length, reservedTime, startNumber, endNumber)
-	for _,o := range orders {
+	for _, o := range orders {
 		t.Logf("###, hash:%s", o.RawOrder.Hash.Hex())
 	}
 }

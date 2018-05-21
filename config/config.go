@@ -29,6 +29,7 @@ import (
 	"github.com/Loopring/relay-lib/dao"
 	"github.com/Loopring/relay-lib/eth/accessor"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
+	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/marketcap"
 	"github.com/Loopring/relay-lib/marketutil"
 	"github.com/Loopring/relay-lib/motan"
@@ -83,6 +84,7 @@ type GlobalConfig struct {
 	MarketUtil       marketutil.MarketOptions
 	ZkLock           zklock.ZkLockConfig
 	DataSource       DataSource
+	Kafka            kafka.KafkaOptions
 }
 
 type DataSource struct {

@@ -109,6 +109,9 @@ func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTi
 			log.Errorf("err:%s", err.Error())
 		} else {
 			orders = res.List
+			if len(res.List) > 0 {
+				log.Debugf("--------order1:%s", res.List[0].RawOrder.Hash.Hex())
+			}
 		}
 	}
 	return orders

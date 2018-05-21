@@ -259,6 +259,9 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 }
 
 func (submitter *RingSubmitter) submitResult(ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
+	if nil == err {
+		err = errors.New("")
+	}
 	resultEvt := &types.RingSubmitResultEvent{
 		RingHash:     ringhash,
 		RingUniqueId: uniqeId,

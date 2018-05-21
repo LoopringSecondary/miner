@@ -1,6 +1,6 @@
 #!/bin/bash
 #BeforeInstall
-WORK_DIR=/opt/loopring/relay
+WORK_DIR=/opt/loopring/miner
 
 if [ ! -d $WORK_DIR ]; then
 	mkdir -p $WORK_DIR/src
@@ -15,7 +15,7 @@ if [[ $? != 0 ]]; then
 	apt install golang-1.9-go -y
 fi
 
-SVC_DIR=/etc/service/relay
+SVC_DIR=/etc/service/miner
 
 if [ ! -d $SVC_DIR ]; then
        mkdir -p $SVC_DIR

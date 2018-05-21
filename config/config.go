@@ -32,9 +32,9 @@ import (
 	"github.com/Loopring/relay-lib/marketcap"
 	"github.com/Loopring/relay-lib/marketutil"
 	"github.com/Loopring/relay-lib/motan"
+	"github.com/Loopring/relay-lib/zklock"
 	"github.com/naoina/toml"
 	"go.uber.org/zap"
-	"github.com/Loopring/relay-lib/zklock"
 )
 
 func LoadConfig(file string) *GlobalConfig {
@@ -81,8 +81,8 @@ type GlobalConfig struct {
 	Keystore         KeyStoreOptions
 	MarketCap        marketcap.MarketCapOptions
 	MarketUtil       marketutil.MarketOptions
-	ZkLock 	zklock.ZkLockConfig
-	DataSource DataSource
+	ZkLock           zklock.ZkLockConfig
+	DataSource       DataSource
 }
 
 type DataSource struct {

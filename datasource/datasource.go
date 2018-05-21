@@ -66,7 +66,6 @@ func Initialize(options config.DataSource, rdsOptions *dao.MysqlOptions, marketc
 }
 
 func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allowance *big.Int, err error) {
-	log.Debugf("##################GetBalanceAndAllowance...")
 	switch source.mode {
 	case LOCAL:
 		return accountmanager.GetBalanceAndAllowance(owner, token, spender)
@@ -77,7 +76,14 @@ func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allo
 			Spender: spender,
 		}
 		res := &libmotan.AccountBalanceAndAllowanceRes{}
-		if err := source.motanClient.Call("getBalanceAndAllowance", []interface{}{req}, res); nil != err {
+		if err := source.motanClient.Call("getBalanceAndAllowance", []interface{}{req}, res); nil != err || "" != res.Err {
+			if "" != res.Err {
+				if nil != err {
+					err = errors.New(err.Error() + " ; " + res.Err)
+				} else {
+					err = errors.New(res.Err)
+				}
+			}
 			return nil, nil, err
 		} else {
 			return res.Balance, res.Allowance, nil
@@ -87,8 +93,7 @@ func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allo
 }
 
 func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTime, startBlockNumber, endBlockNumber int64, filterOrderHashLists ...*types.OrderDelayList) []*types.OrderState {
-	log.Debugf("##################MinerOrders...")
-
+	log.Debugf("getMinerOrders, ...")
 	orders := []*types.OrderState{}
 	switch source.mode {
 	case LOCAL:

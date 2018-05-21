@@ -29,7 +29,6 @@ import (
 	relayLibEth "github.com/Loopring/relay-lib/eth"
 	"github.com/Loopring/relay-lib/eth/gasprice_evaluator"
 	"github.com/Loopring/relay-lib/extractor"
-	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/marketcap"
 	"github.com/Loopring/relay-lib/marketutil"

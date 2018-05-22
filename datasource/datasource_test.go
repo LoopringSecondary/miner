@@ -67,7 +67,6 @@ func TestGetBalanceAndAllowance(t *testing.T) {
 	} else {
 		t.Logf("balance:%s, allowance:%s", balance.String(), allowance.String())
 	}
-
 }
 
 func TestMinerOrders(t *testing.T) {

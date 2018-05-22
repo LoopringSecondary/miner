@@ -28,6 +28,7 @@ import (
 	"github.com/Loopring/relay-lib/crypto"
 	relayLibEth "github.com/Loopring/relay-lib/eth"
 	"github.com/Loopring/relay-lib/eth/gasprice_evaluator"
+	"github.com/Loopring/relay-lib/extractor"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/marketcap"
 	"github.com/Loopring/relay-lib/marketutil"
@@ -120,4 +121,14 @@ func (n *Node) registerMiner() {
 
 func (n *Node) registerMarketCap() {
 	n.marketCapProvider = marketcap.NewMarketCapProvider(&n.globalConfig.MarketCap)
+}
+
+func (n *Node) registerExtractor() {
+	if err := extractor.Initialize(n.globalConfig.Kafka, getKafkaGroup()); err != nil {
+		log.Fatalf("node start, register extractor error:%s", err.Error())
+	}
+}
+
+func getKafkaGroup() string {
+	return "miner_"
 }

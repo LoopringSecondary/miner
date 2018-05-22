@@ -1,5 +1,5 @@
 #!/bin/sh
-echo "starting relay"
+echo "starting miner"
 export PATH=${PATH}:/usr/local/bin:/usr/bin:/usr/sbin
-export WORK_DIR=/opt/loopring/relay
-exec setuidgid ubuntu $WORK_DIR/bin/relay --mode=relay --config $WORK_DIR/config/relay.toml 2>&1
+export WORK_DIR=/opt/loopring/miner
+exec setuidgid ubuntu $WORK_DIR/bin/miner --mode=miner --config $WORK_DIR/config/miner.toml 2>&1

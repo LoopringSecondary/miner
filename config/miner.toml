@@ -97,3 +97,6 @@ title = "miner"
 [zk_lock]
     zk_servers = "127.0.0.1:2181"
     connect_time_out = 10
+
+[kafka]
+    brokers = ["127.0.0.1:9092"]

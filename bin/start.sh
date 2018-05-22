@@ -8,10 +8,10 @@ if [ $PROCESS_NUM -eq 0 ]; then
     sleep 5
 fi
 
-LOG_DIR=/var/log/relay
+LOG_DIR=/var/log/miner
 if [ ! -d $LOG_DIR ]; then
     sudo mkdir -p $LOG_DIR
     sudo chown -R ubuntu:ubuntu $LOG_DIR
 fi
 
-sudo svc -u /etc/service/relay
+sudo svc -u /etc/service/miner

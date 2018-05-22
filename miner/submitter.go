@@ -237,7 +237,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 				gasUsed = e1.GasUsed
 				eventErr = errors.New(e1.Err)
 			}
-			log.Debugf("eventemitter.Watchereventemitter.Watcher:%s", txhash.Hex())
+			log.Debugf("eventemitter.Watchereventemitter.Watcher txhash:%s", txhash.Hex())
 			if infos, err := submitter.dbService.GetRingHashesByTxHash(txhash); nil != err {
 				log.Errorf("err:%s", err.Error())
 			} else {

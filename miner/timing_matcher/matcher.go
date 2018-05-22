@@ -27,6 +27,7 @@ import (
 	"github.com/Loopring/miner/dao"
 	"github.com/Loopring/miner/datasource"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
+	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/marketcap"
 	marketUtilLib "github.com/Loopring/relay-lib/marketutil"
@@ -55,11 +56,22 @@ type TimingMatcher struct {
 	isOrdersReady        bool
 	db                   dao.RdsServiceImpl
 
+	blockEndConsumer *kafka.ConsumerRegister
+
 	stopFuncs []func()
 }
 
-func NewTimingMatcher(matcherOptions *config.TimingMatcher, submitter *miner.RingSubmitter, evaluator *miner.Evaluator, rds dao.RdsServiceImpl, marketcapProvider marketcap.MarketCapProvider) *TimingMatcher {
+func NewTimingMatcher(matcherOptions *config.TimingMatcher,
+	submitter *miner.RingSubmitter,
+	evaluator *miner.Evaluator,
+	rds dao.RdsServiceImpl,
+	marketcapProvider marketcap.MarketCapProvider,
+	kafkaOptions kafka.KafkaOptions,
+) *TimingMatcher {
 	matcher := &TimingMatcher{}
+	matcher.blockEndConsumer = &kafka.ConsumerRegister{}
+	matcher.blockEndConsumer.Initialize(kafkaOptions.Brokers)
+
 	matcher.submitter = submitter
 	matcher.evaluator = evaluator
 	matcher.marketCapProvider = marketcapProvider

@@ -115,7 +115,7 @@ func (n *Node) registerMiner() {
 		log.Fatalf("failed to init submitter, error:%s", err.Error())
 	}
 	evaluator := miner.NewEvaluator(n.marketCapProvider, n.globalConfig.Miner)
-	matcher := timing_matcher.NewTimingMatcher(n.globalConfig.Miner.TimingMatcher, submitter, evaluator, n.rdsService, n.marketCapProvider)
+	matcher := timing_matcher.NewTimingMatcher(n.globalConfig.Miner.TimingMatcher, submitter, evaluator, n.rdsService, n.marketCapProvider, n.globalConfig.Kafka)
 	evaluator.SetMatcher(matcher)
 	n.miner = miner.NewMiner(submitter, matcher, evaluator, n.marketCapProvider)
 }

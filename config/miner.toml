@@ -81,7 +81,6 @@ title = "miner"
 [market_util]
     token_file = "/Users/yuhongyu/Desktop/service/go/src/github.com/Loopring/miner/config/tokens.json"
     old_version_weth_address = "0x88699e7fee2da0462981a08a15a3b940304cc516"
-    cron_job_lock = false
 
 [data_source]
     type = "motan"

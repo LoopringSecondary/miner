@@ -60,7 +60,7 @@ title = "miner"
         maxPendingCount = 20
         gasPriceLimit = 10000000000
     [miner.TimingMatcher]
-    		round_orders_count=2
+    		round_orders_count=20
     		duration = 10000
     		delayed_number = 10000
     		max_cache_rounds_length = 1000

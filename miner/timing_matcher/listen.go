@@ -19,7 +19,9 @@
 package timing_matcher
 
 import (
+	"github.com/Loopring/relay-lib/eth/accessor"
 	"github.com/Loopring/relay-lib/eventemitter"
+	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
 	"math/big"
@@ -73,37 +75,26 @@ import (
 //	})
 //
 //}
-
+//
 func (matcher *TimingMatcher) listenOrderReady() {
+	latestBlockNumber := new(big.Int)
+
 	stopChan := make(chan bool)
 
-	readyFunc := func() {
+	getLatestBlockNumber := func() {
 		var err error
-		//var ethBlockNumber types.Big
-		//if err = accessor.BlockNumber(&ethBlockNumber); nil == err {
-		//	var block *dao.Block
-		//	if block, err = matcher.db.FindLatestBlock(); nil == err {
-		//		log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t, %d, %d", matcher.isOrdersReady, block.BlockNumber, ethBlockNumber.Int64())
-		//		if ethBlockNumber.Int64() > (block.BlockNumber + matcher.lagBlocks) {
-		//			matcher.isOrdersReady = false
-		//		} else {
-		//			matcher.isOrdersReady = true
-		//		}
-		//	}
-		//}
-		if nil != err {
-			matcher.isOrdersReady = false
+		var ethBlockNumber types.Big
+		if err = accessor.BlockNumber(&ethBlockNumber); nil == err {
+			latestBlockNumber = ethBlockNumber.BigInt()
 		}
-		matcher.isOrdersReady = true
-		log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t", matcher.isOrdersReady)
 	}
 
 	go func() {
-		readyFunc()
+		getLatestBlockNumber()
 		for {
 			select {
 			case <-time.After(10 * time.Second):
-				readyFunc()
+				getLatestBlockNumber()
 			case <-stopChan:
 				return
 			}
@@ -114,6 +105,26 @@ func (matcher *TimingMatcher) listenOrderReady() {
 		stopChan <- true
 		close(stopChan)
 	})
+
+	handleBlockEnd := func(input interface{}) error {
+		if event, ok := input.(*types.BlockEvent); ok {
+			log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t, %s, %s", matcher.isOrdersReady, event.BlockNumber.String(), latestBlockNumber.String())
+			if latestBlockNumber.Int64() > (event.BlockNumber.Int64() + matcher.lagBlocks) {
+				matcher.isOrdersReady = false
+			} else {
+				matcher.isOrdersReady = true
+			}
+		} else {
+			log.Errorf("listenOrderReady received input isn't type of *types.BlockEvent")
+		}
+		return nil
+	}
+
+	matcher.blockEndConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_RelayCluster_BlockEnd, getKafkaGroup(), types.BlockEvent{}, handleBlockEnd)
+}
+
+func getKafkaGroup() string {
+	return "miner_"
 }
 
 func (matcher *TimingMatcher) listenTimingRound() {

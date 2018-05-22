@@ -70,6 +70,7 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 func (n *Node) Start() {
 	n.marketCapProvider.Start()
 	n.miner.Start()
+	n.registerExtractor()
 }
 
 func (n *Node) Wait() {

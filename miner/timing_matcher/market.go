@@ -121,7 +121,6 @@ func (market *Market) match() {
 					orderState := market.reduceAmountAfterFilled(filledOrder)
 					isFullFilled := market.isOrderFinished(orderState)
 					matchedOrderHashes[filledOrder.OrderState.RawOrder.Hash] = isFullFilled
-					//market.matcher.rounds.AppendFilledOrderToCurrent(filledOrder, ringForSubmit.RawRing.Hash)
 
 					list = market.reduceReceivedOfCandidateRing(list, filledOrder, isFullFilled)
 				}

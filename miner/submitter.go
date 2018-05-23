@@ -343,7 +343,7 @@ func (submitter *RingSubmitter) GenerateRingSubmitInfo(ringState *types.Ring) (*
 		//ringSubmitInfo.ProtocolGas, ringSubmitInfo.ProtocolGasPrice, err = ethaccessor.EstimateGas(ringSubmitInfo.ProtocolData, protocolAddress, "latest")
 		if nil != err {
 			log.Errorf("can't generate ring ,err:%s", err.Error())
-			return nil,err
+			return nil, err
 		}
 	}
 	//if nil != err {

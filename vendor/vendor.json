@@ -748,11 +748,6 @@
 			"revisionTime": "2018-05-23T04:18:12Z"
 		},
 		{
-			"checksumSHA1": "drXHD18ai5Y/d22im7JauODnabE=",
-			"path": "github.com/leanote/leanote/app/info",
-			"revision": ""
-		},
-		{
 			"checksumSHA1": "ewGq4nGalpCQOHcmBTdAEQx1wW0=",
 			"path": "github.com/mitchellh/mapstructure",
 			"revision": "bb74f1db0675b241733089d5a1faa5dd8b0ef57b",

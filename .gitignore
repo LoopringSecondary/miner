@@ -17,5 +17,5 @@ addparticipant.sh
 config/test_tokens.json
 nohup.out
 snapshot
-log
 miner.iml
+log

@@ -2,8 +2,12 @@
 #BeforeInstall
 WORK_DIR=/opt/loopring/miner
 
-if [ ! -d $WORK_DIR ]; then
+if [ ! -d $WORK_DIR/src ]; then
 	mkdir -p $WORK_DIR/src
+	chown -R ubuntu:ubuntu $WORK_DIR
+fi
+
+if [ ! -d $WORK_DIR/bin ]; then
 	mkdir -p $WORK_DIR/bin
 	chown -R ubuntu:ubuntu $WORK_DIR
 fi

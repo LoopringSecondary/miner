@@ -18,32 +18,8 @@
 
 package miner_test
 
-//import (
-//	"fmt"
-//	"github.com/Loopring/relay/cache"
-//	"github.com/Loopring/relay/config"
-//	"github.com/Loopring/relay/crypto"
-//	"github.com/Loopring/relay/dao"
-//	"github.com/Loopring/relay/ethaccessor"
-//	"github.com/Loopring/relay/log"
-//	"github.com/Loopring/relay/market/util"
-//	"github.com/Loopring/relay/marketcap"
-//	"github.com/Loopring/relay/miner"
-//	"github.com/Loopring/relay/miner/timing_matcher"
-//	"github.com/Loopring/relay/ordermanager"
-//	"github.com/Loopring/relay/test"
-//	"github.com/Loopring/relay/types"
-//	"github.com/Loopring/relay/usermanager"
-//	"github.com/ethereum/go-ethereum/accounts"
-//	"github.com/ethereum/go-ethereum/accounts/keystore"
-//	"github.com/ethereum/go-ethereum/common"
-//	"math/big"
-//	"os"
-//	"strings"
-//	"testing"
-//	"time"
-//)
-//
+import ()
+
 //func loadConfig() *config.GlobalConfig {
 //	path := strings.TrimSuffix(os.Getenv("GOPATH"), "/") + "/src/github.com/Loopring/relay/config/relay.toml"
 //	c := config.LoadConfig(path)

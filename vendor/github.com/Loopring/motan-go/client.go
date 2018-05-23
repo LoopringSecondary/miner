@@ -42,6 +42,7 @@ func (c *Client) BaseCall(req motan.Request, reply interface{}) error {
 	rc.Reply = reply
 	res := c.cluster.Call(req)
 	if res.GetException() != nil {
+		println("#########", res.GetException().ErrMsg)
 		return errors.New(res.GetException().ErrMsg)
 	}
 	return nil

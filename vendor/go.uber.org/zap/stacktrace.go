@@ -28,19 +28,16 @@ import (
 	"go.uber.org/zap/internal/bufferpool"
 )
 
-const _zapPackage = "go.uber.org/zap"
-
 var (
+	_stacktraceIgnorePrefixes = []string{
+		"runtime.goexit",
+		"runtime.main",
+	}
 	_stacktracePool = sync.Pool{
 		New: func() interface{} {
 			return newProgramCounters(64)
 		},
 	}
-
-	// We add "." and "/" suffixes to the package name to ensure we only match
-	// the exact package and not any package with the same prefix.
-	_zapStacktracePrefixes       = addPrefix(_zapPackage, ".", "/")
-	_zapStacktraceVendorContains = addPrefix("/vendor/", _zapStacktracePrefixes...)
 )
 
 func takeStacktrace() string {
@@ -63,19 +60,11 @@ func takeStacktrace() string {
 	}
 
 	i := 0
-	skipZapFrames := true // skip all consecutive zap frames at the beginning.
 	frames := runtime.CallersFrames(programCounters.pcs[:numFrames])
-
-	// Note: On the last iteration, frames.Next() returns false, with a valid
-	// frame, but we ignore this frame. The last frame is a a runtime frame which
-	// adds noise, since it's only either runtime.main or runtime.goexit.
 	for frame, more := frames.Next(); more; frame, more = frames.Next() {
-		if skipZapFrames && isZapFrame(frame.Function) {
+		if shouldIgnoreStacktraceFunction(frame.Function) {
 			continue
-		} else {
-			skipZapFrames = false
 		}
-
 		if i != 0 {
 			buffer.AppendByte('\n')
 		}
@@ -91,21 +80,12 @@ func takeStacktrace() string {
 	return buffer.String()
 }
 
-func isZapFrame(function string) bool {
-	for _, prefix := range _zapStacktracePrefixes {
+func shouldIgnoreStacktraceFunction(function string) bool {
+	for _, prefix := range _stacktraceIgnorePrefixes {
 		if strings.HasPrefix(function, prefix) {
 			return true
 		}
 	}
-
-	// We can't use a prefix match here since the location of the vendor
-	// directory affects the prefix. Instead we do a contains match.
-	for _, contains := range _zapStacktraceVendorContains {
-		if strings.Contains(function, contains) {
-			return true
-		}
-	}
-
 	return false
 }
 
@@ -115,12 +95,4 @@ type programCounters struct {
 
 func newProgramCounters(size int) *programCounters {
 	return &programCounters{make([]uintptr, size)}
-}
-
-func addPrefix(prefix string, ss ...string) []string {
-	withPrefix := make([]string, len(ss))
-	for i, s := range ss {
-		withPrefix[i] = prefix + s
-	}
-	return withPrefix
 }

@@ -2,10 +2,10 @@ version: 0.0
 os: linux
 files:
   - source: /
-    destination: /opt/loopring/relay/src
+    destination: /opt/loopring/miner/src
   
 permissions:
-  - object: /opt/loopring/relay
+  - object: /opt/loopring/miner
     pattern: "**"
     group: ubuntu
     owner: ubuntu

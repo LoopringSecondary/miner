@@ -46,7 +46,7 @@ func Initialize() error {
 			bufferStartTimeStamp := time.Now()
 			for {
 				select {
-				case data, ok := <-outChan:
+				case data, ok := <- outChan:
 					if !ok {
 						log.Error("Receive from cloud watch output channel failed")
 					} else {
@@ -147,16 +147,16 @@ func cloneDatum(datum *cloudwatch.MetricDatum) *cloudwatch.MetricDatum {
 
 func batchSendMetricData(datums []*cloudwatch.MetricDatum) {
 	//fmt.Printf("batchSendMetricData %s send datums size %d\n", time.Now().Format(time.RFC3339), len(datums))
-	for i := 0; ; i++ {
-		if i*batchSendSize >= len(datums) {
+	for i := 0;; i++ {
+		if i * batchSendSize >= len(datums) {
 			return
 		}
 		input := &cloudwatch.PutMetricDataInput{}
-		endIndex := (i + 1) * batchSendSize
+		endIndex := (i+1)*batchSendSize
 		if endIndex > len(datums) {
 			endIndex = len(datums)
 		}
-		input.MetricData = datums[i*batchSendSize : endIndex]
+		input.MetricData = datums[i*batchSendSize: endIndex]
 		input.Namespace = namespaceNormal()
 		go func() {
 			cwc.PutMetricData(input)
@@ -166,11 +166,11 @@ func batchSendMetricData(datums []*cloudwatch.MetricDatum) {
 
 func checkObsolete(datum *cloudwatch.MetricDatum) bool {
 	//fmt.Printf("checkObsolete : %d %d %d \n", time.Now().UnixNano(), datum.Timestamp.UnixNano(), time.Now().UnixNano() - datum.Timestamp.UnixNano())
-	return time.Now().UnixNano()-datum.Timestamp.UnixNano() > 1000*1000*1000*obsoleteTimeoutSeconds
+	return time.Now().UnixNano() - datum.Timestamp.UnixNano() > 1000*1000*1000*obsoleteTimeoutSeconds
 }
 
 func checkTimeout(datum *cloudwatch.MetricDatum, startTime time.Time) bool {
-	return datum.Timestamp.UnixNano()-startTime.UnixNano() > 1000*1000*1000*batchTimeoutSeconds
+	return datum.Timestamp.UnixNano() - startTime.UnixNano() > 1000*1000*1000*batchTimeoutSeconds
 }
 
 func namespaceNormal() *string {

@@ -108,15 +108,25 @@ func (abi ABI) Pack(name string, args ...interface{}) ([]byte, error) {
 //}
 
 // Unpack output in v according to the abi specification
-func (abi ABI) UnpackMethod(v interface{}, name string, output []byte) (err error) {
-	if len(output)%32 != 0 {
-		return fmt.Errorf("abi: improperly formatted output")
+func (abi ABI) UnpackMethod(v interface{}, name string, output []byte, decodeValues [][]byte) (err error) {
+	if len(output) == 0 && len(decodeValues) == 0 {
+		return fmt.Errorf("abi: unmarshalling empty output")
 	}
 
 	// since there can't be naming collisions with contracts and events,
 	// we need to decide whether we're calling a method or an event
-	if method, ok := abi.Methods[name]; !ok {
+	method, ok := abi.Methods[name]
+	if !ok {
 		return fmt.Errorf("abi: could not locate named method or event")
+	}
+
+	// method without any input
+	if method.Inputs.isEmpty() {
+		return unpackEmpty(v, decodeValues)
+	}
+
+	if len(output)%32 != 0 {
+		return fmt.Errorf("abi: improperly formatted output")
 	} else {
 		return method.Inputs.Unpack(v, output)
 	}

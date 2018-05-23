@@ -2,7 +2,6 @@ package vlog
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/user"
@@ -16,7 +15,9 @@ var MaxSize uint64 = 1024 * 1024 * 1800
 
 var logDirs []string
 
-var logDir = flag.String("motan_log_dir", "", "If non-empty, write log files in this directory")
+var l = "."
+
+var logDir = &l
 
 func createLogDirs() {
 	if *logDir != "" {

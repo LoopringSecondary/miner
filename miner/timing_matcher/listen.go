@@ -109,6 +109,7 @@ func (matcher *TimingMatcher) listenOrderReady() {
 	handleBlockEnd := func(input interface{}) error {
 		if event, ok := input.(*types.BlockEvent); ok {
 			log.Debugf("listenOrderReadylistenOrderReadylistenOrderReady, %t, %s, %s", matcher.isOrdersReady, event.BlockNumber.String(), latestBlockNumber.String())
+			matcher.relayProcessedBlockNumber = new(big.Int).Set(event.BlockNumber)
 			if latestBlockNumber.Int64() > (event.BlockNumber.Int64() + matcher.lagBlocks) {
 				matcher.isOrdersReady = false
 			} else {
@@ -132,6 +133,7 @@ func (matcher *TimingMatcher) listenTimingRound() {
 
 	matchFunc := func() {
 		if !matcher.isOrdersReady {
+			log.Debugf("matcher.isOrderReady:%v, relayProcessedBlockNumber:%s , the matching can't be started, ", matcher.isOrdersReady, matcher.relayProcessedBlockNumber.String())
 			return
 		}
 		//if ethaccessor.Synced() {

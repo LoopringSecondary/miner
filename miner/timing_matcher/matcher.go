@@ -57,6 +57,7 @@ type TimingMatcher struct {
 	db                   dao.RdsServiceImpl
 
 	blockEndConsumer *kafka.ConsumerRegister
+	relayProcessedBlockNumber *big.Int
 
 	stopFuncs []func()
 }
@@ -71,7 +72,7 @@ func NewTimingMatcher(matcherOptions *config.TimingMatcher,
 	matcher := &TimingMatcher{}
 	matcher.blockEndConsumer = &kafka.ConsumerRegister{}
 	matcher.blockEndConsumer.Initialize(kafkaOptions.Brokers)
-
+	matcher.relayProcessedBlockNumber = big.NewInt(int64(0))
 	matcher.submitter = submitter
 	matcher.evaluator = evaluator
 	matcher.marketCapProvider = marketcapProvider

@@ -56,7 +56,7 @@ type TimingMatcher struct {
 	isOrdersReady        bool
 	db                   dao.RdsServiceImpl
 
-	blockEndConsumer *kafka.ConsumerRegister
+	blockEndConsumer          *kafka.ConsumerRegister
 	relayProcessedBlockNumber *big.Int
 
 	stopFuncs []func()

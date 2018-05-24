@@ -25,6 +25,7 @@ import (
 	"github.com/Loopring/miner/miner"
 	"github.com/Loopring/miner/miner/timing_matcher"
 	"github.com/Loopring/relay-lib/cache"
+	"github.com/Loopring/relay-lib/cloudwatch"
 	"github.com/Loopring/relay-lib/crypto"
 	relayLibEth "github.com/Loopring/relay-lib/eth"
 	"github.com/Loopring/relay-lib/eth/gasprice_evaluator"
@@ -62,12 +63,15 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 	if _, err := zklock.Initialize(globalConfig.ZkLock); nil != err {
 		log.Fatalf("err:%s", err.Error())
 	}
-	gasprice_evaluator.InitGasPriceEvaluator()
+	if err := cloudwatch.Initialize(); nil != err {
+		log.Errorf("err:%s", err.Error())
+	}
 	datasource.Initialize(globalConfig.DataSource, globalConfig.Mysql, n.marketCapProvider)
 	return n
 }
 
 func (n *Node) Start() {
+	gasprice_evaluator.InitGasPriceEvaluator()
 	n.marketCapProvider.Start()
 	n.miner.Start()
 	n.registerExtractor()

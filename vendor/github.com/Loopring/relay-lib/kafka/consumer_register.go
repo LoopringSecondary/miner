@@ -24,6 +24,7 @@ import (
 	"github.com/bsm/sarama-cluster"
 	"reflect"
 	"sync"
+	"github.com/Loopring/relay-lib/log"
 )
 
 type ConsumerRegister struct {
@@ -52,7 +53,7 @@ func (cr *ConsumerRegister) RegisterTopicAndHandler(topic string, groupId string
 		_, ok1 := groupConsumerMap[groupId]
 		if ok1 {
 			cr.mutex.Unlock()
-			return fmt.Errorf("consumer alreay registered !!")
+			return fmt.Errorf("kafka consumer alreay registered for [%s, %s]!!\n", topic, groupId)
 		}
 	} else {
 		cr.consumerMap[topic] = make(map[string]*cluster.Consumer)
@@ -63,18 +64,19 @@ func (cr *ConsumerRegister) RegisterTopicAndHandler(topic string, groupId string
 		return err
 	}
 	cr.consumerMap[topic][groupId] = consumer
+	log.Infof("Register kafka consumer success for [%s, %s]\n", topic, groupId)
 	cr.mutex.Unlock()
 
 	go func() {
 		for err := range consumer.Errors() {
-			fmt.Printf("Error: %s\n", err.Error())
+			log.Errorf("kafka consumer error [%s, %s]: %s\n", topic, groupId, err.Error())
 		}
 	}()
 
 	// consume notifications
 	go func() {
 		for ntf := range consumer.Notifications() {
-			fmt.Printf("Notification : %+v\n", ntf)
+			log.Infof("Notification for [%s, %s] : %+v\n", topic, groupId, ntf)
 		}
 	}()
 

@@ -95,6 +95,11 @@ func (matcher *TimingMatcher) listenOrderReady() {
 			select {
 			case <-time.After(10 * time.Second):
 				getLatestBlockNumber()
+				if latestBlockNumber.Int64() > (matcher.relayProcessedBlockNumber.Int64() + matcher.lagBlocks) {
+					matcher.isOrdersReady = false
+				} else {
+					matcher.isOrdersReady = true
+				}
 			case <-stopChan:
 				return
 			}

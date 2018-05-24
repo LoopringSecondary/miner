@@ -1,9 +1,6 @@
 package metrics
 
-import (
-	"math"
-	"sync/atomic"
-)
+import "sync"
 
 // GaugeFloat64s hold a float64 value that can be set arbitrarily.
 type GaugeFloat64 interface {
@@ -41,24 +38,6 @@ func NewRegisteredGaugeFloat64(name string, r Registry) GaugeFloat64 {
 	return c
 }
 
-// NewFunctionalGauge constructs a new FunctionalGauge.
-func NewFunctionalGaugeFloat64(f func() float64) GaugeFloat64 {
-	if UseNilMetrics {
-		return NilGaugeFloat64{}
-	}
-	return &FunctionalGaugeFloat64{value: f}
-}
-
-// NewRegisteredFunctionalGauge constructs and registers a new StandardGauge.
-func NewRegisteredFunctionalGaugeFloat64(name string, r Registry, f func() float64) GaugeFloat64 {
-	c := NewFunctionalGaugeFloat64(f)
-	if nil == r {
-		r = DefaultRegistry
-	}
-	r.Register(name, c)
-	return c
-}
-
 // GaugeFloat64Snapshot is a read-only copy of another GaugeFloat64.
 type GaugeFloat64Snapshot float64
 
@@ -88,7 +67,8 @@ func (NilGaugeFloat64) Value() float64 { return 0.0 }
 // StandardGaugeFloat64 is the standard implementation of a GaugeFloat64 and uses
 // sync.Mutex to manage a single float64 value.
 type StandardGaugeFloat64 struct {
-	value uint64
+	mutex sync.Mutex
+	value float64
 }
 
 // Snapshot returns a read-only copy of the gauge.
@@ -98,28 +78,14 @@ func (g *StandardGaugeFloat64) Snapshot() GaugeFloat64 {
 
 // Update updates the gauge's value.
 func (g *StandardGaugeFloat64) Update(v float64) {
-	atomic.StoreUint64(&g.value, math.Float64bits(v))
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	g.value = v
 }
 
 // Value returns the gauge's current value.
 func (g *StandardGaugeFloat64) Value() float64 {
-	return math.Float64frombits(atomic.LoadUint64(&g.value))
-}
-
-// FunctionalGaugeFloat64 returns value from given function
-type FunctionalGaugeFloat64 struct {
-	value func() float64
-}
-
-// Value returns the gauge's current value.
-func (g FunctionalGaugeFloat64) Value() float64 {
-	return g.value()
-}
-
-// Snapshot returns the snapshot.
-func (g FunctionalGaugeFloat64) Snapshot() GaugeFloat64 { return GaugeFloat64Snapshot(g.Value()) }
-
-// Update panics.
-func (FunctionalGaugeFloat64) Update(float64) {
-	panic("Update called on a FunctionalGaugeFloat64")
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
+	return g.value
 }

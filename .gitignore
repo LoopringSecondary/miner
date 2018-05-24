@@ -18,4 +18,3 @@ config/test_tokens.json
 nohup.out
 snapshot
 miner.iml
-log

@@ -29,10 +29,12 @@ import (
 	"github.com/Loopring/relay-lib/eth/contract"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
 	"github.com/Loopring/relay-lib/eventemitter"
+	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"time"
 )
 
 //保存ring，并将ring发送到区块链，同样需要分为待完成和已完成
@@ -50,6 +52,8 @@ type RingSubmitter struct {
 	dbService dao.RdsServiceImpl
 	matcher   Matcher
 
+	messageProducer *kafka.MessageProducer
+
 	stopFuncs []func()
 }
 
@@ -58,7 +62,7 @@ type RingSubmitFailed struct {
 	err       error
 }
 
-func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl) (*RingSubmitter, error) {
+func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl, brokers []string) (*RingSubmitter, error) {
 	submitter := &RingSubmitter{}
 	submitter.maxGasLimit = big.NewInt(options.MaxGasLimit)
 	submitter.minGasLimit = big.NewInt(options.MinGasLimit)
@@ -99,6 +103,14 @@ func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl) (*R
 
 	submitter.dbService = dbService
 
+	if len(brokers) > 0 {
+		submitter.messageProducer = &kafka.MessageProducer{}
+		if err := submitter.messageProducer.Initialize(brokers); nil != err {
+			log.Fatalf("Failed init producerWrapped %s", err.Error())
+		}
+	} else {
+		log.Errorf("There is not brokers of kafka to send msg.")
+	}
 	submitter.stopFuncs = []func(){}
 	return submitter, nil
 }
@@ -181,6 +193,17 @@ func (submitter *RingSubmitter) listenNewRings() {
 							daoOrder.ConvertDown(filledOrder, ringState.Ringhash)
 							if err1 := submitter.dbService.Add(daoOrder); nil != err1 {
 								log.Errorf("Miner submitter,insert filled Order err:%s", err1.Error())
+							} else {
+								if nil != submitter.messageProducer {
+									data := &types.SubmitOrderEvent{}
+									data.Orderhash = filledOrder.OrderState.RawOrder.Hash
+									data.SubmitTime = time.Now().Unix()
+									if _, _, err2 := submitter.messageProducer.SendMessage(kafka.Kafka_Topic_Miner_SubmitOrder, data, data.Orderhash.Hex()); nil != err2 {
+										log.Errorf("err:%s", err2.Error())
+									}
+								} else {
+									log.Debugf("submitter.messageProducer is nil, and the submitorderEvent will not be send.")
+								}
 							}
 						}
 					}

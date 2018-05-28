@@ -213,10 +213,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "mfj6Mp5JCs+BwaqvUpBJ3fVVvqo=",
+			"checksumSHA1": "smw+oUvJrQdSbvJRNNvao3Tcmj4=",
 			"path": "github.com/Loopring/relay-lib/kafka",
-			"revision": "3c196fe2b44af07592d3929f04b5c867a3cc3ef4",
-			"revisionTime": "2018-05-24T09:59:38Z"
+			"revision": "c4d72baeea2d153f7fb160e4b993b41d6f100d3f",
+			"revisionTime": "2018-05-28T06:51:08Z"
 		},
 		{
 			"checksumSHA1": "JjFEjU8YY4HP+oaGiGI9O8xg+3k=",
@@ -249,10 +249,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "MUWnycwBM59fGrJuD4k1svFkiEw=",
+			"checksumSHA1": "VQ5pMJ7OvqQTQm0FwHIa2fwJvf4=",
 			"path": "github.com/Loopring/relay-lib/types",
-			"revision": "3c196fe2b44af07592d3929f04b5c867a3cc3ef4",
-			"revisionTime": "2018-05-24T09:59:38Z"
+			"revision": "c4d72baeea2d153f7fb160e4b993b41d6f100d3f",
+			"revisionTime": "2018-05-28T06:51:08Z"
 		},
 		{
 			"checksumSHA1": "uTx8V1W6ZP0sYRlErDTDm+VzqFg=",

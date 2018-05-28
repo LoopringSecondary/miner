@@ -21,6 +21,7 @@ package dao
 import (
 	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"math/big"
 	"time"
 )
@@ -203,11 +204,18 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 		"ring_index":        getBigIntString(submitResult.RingIndex),
 		"block_number":      getBigIntString(submitResult.BlockNumber),
 		"protocol_used_gas": getBigIntString(submitResult.UsedGas),
+		"ringhash":          submitResult.RingHash.Hex(),
+		"protocol_tx_hash":  submitResult.TxHash.Hex(),
 	}
 	if "" != submitResult.Err {
 		items["err"] = submitResult.Err
 	}
+
 	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("ringhash = ? and protocol_tx_hash = ? ", submitResult.RingHash.Hex(), submitResult.TxHash.Hex())
+	//todo:test it
+	if submitResult.RecordId > 0 {
+		dbForUpdate.Where("id = ?", submitResult.RecordId)
+	}
 	return dbForUpdate.Update(items).Error
 }
 
@@ -237,4 +245,12 @@ func (s *RdsServiceImpl) GetRingHashesByTxHash(txHash common.Hash) ([]*RingSubmi
 func (s *RdsServiceImpl) UpdateRingSubmitInfoSubmitUsedGas(txHash string, usedGas *big.Int) error {
 	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("protocol_tx_hash = ?", txHash)
 	return dbForUpdate.Update("protocol_used_gas", getBigIntString(usedGas)).Error
+}
+
+func (s *RdsServiceImpl) UpdateRingSubmitInfoErrById(id int, err error) error {
+	if nil == err {
+		err = errors.New("")
+	}
+	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("id = ?", id)
+	return dbForUpdate.Update("err", err.Error()).Error
 }

@@ -21,10 +21,10 @@ package kafka
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/Loopring/relay-lib/log"
 	"github.com/bsm/sarama-cluster"
 	"reflect"
 	"sync"
-	"github.com/Loopring/relay-lib/log"
 )
 
 type ConsumerRegister struct {
@@ -86,9 +86,18 @@ func (cr *ConsumerRegister) RegisterTopicAndHandler(topic string, groupId string
 			case msg, ok := <-consumer.Messages():
 				if ok {
 					data := (reflect.New(reflect.TypeOf(data))).Interface()
-					json.Unmarshal(msg.Value, data)
-					action(data)
+					err := json.Unmarshal(msg.Value, data)
+					if err != nil {
+						log.Errorf("Kafka consumer for [%s, %s] failed Unmarshal data for data type : %s\n", topic, groupId, reflect.TypeOf(data).Name())
+					} else {
+						err := action(data)
+						if err != nil {
+							log.Errorf("Kafka consumer for [%s, %s], message handler execute failed : %s\n", topic, groupId, err.Error())
+						}
+					}
 					consumer.MarkOffset(msg, "") // mark message as processed
+				} else {
+					log.Errorf("Kafka consumer for [%s, %s] receive message failed\n", topic, groupId)
 				}
 			}
 		}

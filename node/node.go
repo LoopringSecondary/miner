@@ -114,7 +114,7 @@ func (n *Node) registerDataSource() {
 }
 
 func (n *Node) registerMiner() {
-	submitter, err := miner.NewSubmitter(n.globalConfig.Miner, n.rdsService)
+	submitter, err := miner.NewSubmitter(n.globalConfig.Miner, n.rdsService, n.globalConfig.Kafka.Brokers)
 	if nil != err {
 		log.Fatalf("failed to init submitter, error:%s", err.Error())
 	}

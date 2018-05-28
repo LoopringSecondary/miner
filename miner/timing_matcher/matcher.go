@@ -56,6 +56,7 @@ type TimingMatcher struct {
 	isOrdersReady        bool
 	db                   dao.RdsServiceImpl
 
+	messageProducer           *kafka.MessageProducer
 	blockEndConsumer          *kafka.ConsumerRegister
 	relayProcessedBlockNumber *big.Int
 

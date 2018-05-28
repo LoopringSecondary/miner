@@ -126,7 +126,7 @@ func unlockAccount(ctx *cli.Context, globalConfig *config.GlobalConfig) {
 				if keystore.ErrNoMatch == err {
 					log.Fatalf("err:", err.Error())
 				} else {
-					utils.ExitWithErr(ctx.App.Writer, errors.New("failed to unlock address:"+acc.Address.Hex()+"  err:" + err.Error()))
+					utils.ExitWithErr(ctx.App.Writer, errors.New("failed to unlock address:"+acc.Address.Hex()+"  err:"+err.Error()))
 				}
 			}
 		} else {

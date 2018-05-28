@@ -31,8 +31,10 @@ import (
 	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
+	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	"strings"
 )
 
 //保存ring，并将ring发送到区块链，同样需要分为待完成和已完成
@@ -388,10 +390,26 @@ func (submitter *RingSubmitter) stop() {
 	}
 }
 
+const (
+	ZKLOCK_SUBMITTER_MINER_ADDR_PRE = "zklock_submitter_miner_addr_"
+)
+
+func (submitter *RingSubmitter) listenNewRings() {
+	for _, minerAddr := range submitter.normalMinerAddresses {
+		go func(minerAddr common.Address) {
+			addr := strings.ToLower(minerAddr.Hex())
+			zklock.TryLock(ZKLOCK_SUBMITTER_MINER_ADDR_PRE + addr)
+			submitter.stopFuncs = append(submitter.stopFuncs, func() {
+				zklock.ReleaseLock(ZKLOCK_SUBMITTER_MINER_ADDR_PRE + addr)
+			})
+			submitter.newRingSubmitInfoConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+addr, getKafkaGroup(), types.BlockEvent{}, submitter.handleNewRing)
+		}(minerAddr.Address)
+	}
+}
+
 func (submitter *RingSubmitter) start() {
-	//submitter.listenNewRings()
+	submitter.listenNewRings()
 	//submitter.listenSubmitRingMethodEventFromMysql()
-	submitter.newRingSubmitInfoConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_Miner_SubmitInfo, getKafkaGroup(), types.BlockEvent{}, submitter.handleNewRing)
 	submitter.listenBlockNew()
 	submitter.listenSubmitRingMethodEvent()
 }

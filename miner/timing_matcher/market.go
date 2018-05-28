@@ -31,6 +31,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sort"
+	"strings"
 )
 
 type Market struct {
@@ -180,7 +181,7 @@ func (market *Market) addSubmitInfo(ringState *types.RingSubmitInfo) error {
 	evt.ProtocolGasPrice = ringState.ProtocolGasPrice
 	evt.ProtocolData = common.ToHex(ringState.ProtocolData)
 
-	if _, _, err := market.matcher.messageProducer.SendMessage(kafka.Kafka_Topic_Miner_SubmitInfo, evt, evt.Ringhash.Hex()); nil != err {
+	if _, _, err := market.matcher.messageProducer.SendMessage(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+strings.ToLower(evt.Miner.Hex()), evt, evt.Ringhash.Hex()); nil != err {
 		log.Errorf("err:%s", err.Error())
 		if err1 := market.matcher.db.UpdateRingSubmitInfoErrById(evt.SubmitInfoId, err); nil != err1 {
 			log.Errorf("err:%s", err1.Error())

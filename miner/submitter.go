@@ -28,13 +28,14 @@ import (
 	"github.com/Loopring/relay-lib/eth/accessor"
 	"github.com/Loopring/relay-lib/eth/contract"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
+	libEthTypes "github.com/Loopring/relay-lib/eth/types"
 	"github.com/Loopring/relay-lib/eventemitter"
 	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"time"
+	ethTypes "github.com/ethereum/go-ethereum/core/types"
 )
 
 //保存ring，并将ring发送到区块链，同样需要分为待完成和已完成
@@ -179,35 +180,26 @@ func (submitter *RingSubmitter) listenNewRings() {
 			log.Debugf("received ringstates length:%d", len(ringInfos))
 			//ringSubmitInfoChan <- e
 			if nil != ringInfos {
-				for _, ringState := range ringInfos {
-					txHash, status, err1 := submitter.submitRing(ringState)
-					ringState.SubmitTxHash = txHash
+				for _, ringInfo := range ringInfos {
+					txHash, status, tx, err1 := submitter.submitRing(ringInfo)
+					ringInfo.SubmitTxHash = txHash
 
 					daoInfo := &dao.RingSubmitInfo{}
-					daoInfo.ConvertDown(ringState, err1)
+					daoInfo.ConvertDown(ringInfo, err1)
 					if err := submitter.dbService.Add(daoInfo); nil != err {
 						log.Errorf("Miner submitter,insert new ring err:%s", err.Error())
 					} else {
-						for _, filledOrder := range ringState.RawRing.Orders {
+						for _, filledOrder := range ringInfo.RawRing.Orders {
 							daoOrder := &dao.FilledOrder{}
-							daoOrder.ConvertDown(filledOrder, ringState.Ringhash)
+							daoOrder.ConvertDown(filledOrder, ringInfo.Ringhash)
 							if err1 := submitter.dbService.Add(daoOrder); nil != err1 {
 								log.Errorf("Miner submitter,insert filled Order err:%s", err1.Error())
 							} else {
-								if nil != submitter.messageProducer {
-									data := &types.SubmitOrderEvent{}
-									data.Orderhash = filledOrder.OrderState.RawOrder.Hash
-									data.SubmitTime = time.Now().Unix()
-									if _, _, err2 := submitter.messageProducer.SendMessage(kafka.Kafka_Topic_Miner_SubmitOrder, data, data.Orderhash.Hex()); nil != err2 {
-										log.Errorf("err:%s", err2.Error())
-									}
-								} else {
-									log.Debugf("submitter.messageProducer is nil, and the submitorderEvent will not be send.")
-								}
+								submitter.sendPendingTransaction(tx, ringInfo.Miner)
 							}
 						}
 					}
-					submitter.submitResult(ringState.Ringhash, ringState.RawRing.GenerateUniqueId(), txHash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err1)
+					submitter.submitResult(ringInfo.Ringhash, ringInfo.RawRing.GenerateUniqueId(), txHash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err1)
 				}
 			}
 			return nil
@@ -225,7 +217,7 @@ func (submitter *RingSubmitter) canSubmit(ringState *types.RingSubmitInfo) error
 	return errors.New("had been processed")
 }
 
-func (submitter *RingSubmitter) submitRing(ringSubmitInfo *types.RingSubmitInfo) (common.Hash, types.TxStatus, error) {
+func (submitter *RingSubmitter) submitRing(ringSubmitInfo *types.RingSubmitInfo) (common.Hash, types.TxStatus, *ethTypes.Transaction, error) {
 	status := types.TX_STATUS_PENDING
 	ordersStr, _ := json.Marshal(ringSubmitInfo.RawRing.Orders)
 	log.Debugf("submitring hash:%s, orders:%s", ringSubmitInfo.Ringhash.Hex(), string(ordersStr))
@@ -233,20 +225,49 @@ func (submitter *RingSubmitter) submitRing(ringSubmitInfo *types.RingSubmitInfo)
 	txHash := types.NilHash
 	var err error
 
+	var tx *ethTypes.Transaction
 	if nil == err {
 		txHashStr := "0x"
-		txHashStr, err = accessor.SignAndSendTransaction(ringSubmitInfo.Miner, ringSubmitInfo.ProtocolAddress, ringSubmitInfo.ProtocolGas, ringSubmitInfo.ProtocolGasPrice, nil, ringSubmitInfo.ProtocolData, false)
+		txHashStr, tx, err = accessor.SignAndSendTransaction(ringSubmitInfo.Miner, ringSubmitInfo.ProtocolAddress, ringSubmitInfo.ProtocolGas, ringSubmitInfo.ProtocolGasPrice, nil, ringSubmitInfo.ProtocolData, false)
 		if nil != err {
 			log.Errorf("submitring hash:%s, err:%s", ringSubmitInfo.Ringhash.Hex(), err.Error())
 			status = types.TX_STATUS_FAILED
 		}
+
 		txHash = common.HexToHash(txHashStr)
 	} else {
 		log.Errorf("submitring hash:%s, protocol:%s, err:%s", ringSubmitInfo.Ringhash.Hex(), ringSubmitInfo.ProtocolAddress.Hex(), err.Error())
 		status = types.TX_STATUS_FAILED
 	}
 
-	return txHash, status, err
+	return txHash, status, tx, err
+}
+
+func (submitter *RingSubmitter) sendPendingTransaction(tx *ethTypes.Transaction, from common.Address) {
+	if nil != tx {
+		//hash,nonce,from,to,value,gasprice,gas,input
+		libTx := &libEthTypes.Transaction{}
+		libTx.Hash = tx.Hash().Hex()
+		libTx.From = from.Hex()
+		libTx.To = tx.To().Hex()
+		gas, gasPrice, nonce, value := new(types.Big), new(types.Big), new(types.Big), new(types.Big)
+		gas.SetInt(new(big.Int).SetUint64(tx.Gas()))
+		gasPrice.SetInt(tx.GasPrice())
+		nonce.SetInt(new(big.Int).SetUint64(tx.Nonce()))
+		value.SetInt(tx.Value())
+		libTx.Value = *value
+		libTx.Gas = *gas
+		libTx.GasPrice = *gasPrice
+		libTx.Input = common.ToHex(tx.Data())
+		libTx.Nonce = *nonce
+		if nil != submitter.messageProducer {
+			if _, _, err2 := submitter.messageProducer.SendMessage(kafka.Kafka_Topic_Extractor_PendingTransaction, libTx, libTx.Hash); nil != err2 {
+				log.Errorf("err:%s", err2.Error())
+			}
+		} else {
+			log.Debugf("submitter.messageProducer is nil, and the submitorderEvent will not be send.")
+		}
+	}
 }
 
 func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {

@@ -19,16 +19,19 @@
 package timing_matcher
 
 import (
+	"errors"
 	"fmt"
+	"github.com/Loopring/miner/dao"
 	"github.com/Loopring/miner/datasource"
 	"github.com/Loopring/miner/miner"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
-	"github.com/Loopring/relay-lib/eventemitter"
+	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sort"
+	"strings"
 )
 
 type Market struct {
@@ -125,7 +128,11 @@ func (market *Market) match() {
 					list = market.reduceReceivedOfCandidateRing(list, filledOrder, isFullFilled)
 				}
 				AddMinedRing(ringForSubmit)
-				ringSubmitInfos = append(ringSubmitInfos, ringForSubmit)
+				//ringSubmitInfos = append(ringSubmitInfos, ringForSubmit)
+				if err := market.addSubmitInfo(ringForSubmit); nil != err {
+					log.Errorf("err:%s", err.Error())
+					RemoveMinedRingAndReturnOrderhashes(ringForSubmit.Ringhash)
+				}
 			} else {
 				log.Debugf("ring:%s will not be submitted,because of received:%s", ringForSubmit.RawRing.Hash.Hex(), ringForSubmit.RawRing.Received.String())
 			}
@@ -144,8 +151,44 @@ func (market *Market) match() {
 		}
 	}
 	if len(ringSubmitInfos) > 0 {
-		eventemitter.Emit(eventemitter.Miner_NewRing, ringSubmitInfos)
+		//eventemitter.Emit(eventemitter.Miner_NewRing, ringSubmitInfos)
 	}
+}
+
+func (market *Market) addSubmitInfo(ringState *types.RingSubmitInfo) error {
+	daoInfo := &dao.RingSubmitInfo{}
+	daoInfo.ConvertDown(ringState, errors.New(""))
+	for _, filledOrder := range ringState.RawRing.Orders {
+		daoOrder := &dao.FilledOrder{}
+		daoOrder.ConvertDown(filledOrder, ringState.Ringhash)
+		if err1 := market.matcher.db.Add(daoOrder); nil != err1 {
+			log.Errorf("insert filled Order err:%s", err1.Error())
+			return err1
+		}
+	}
+	if err := market.matcher.db.Add(daoInfo); nil != err {
+		log.Errorf("insert new ring err:%s", err.Error())
+		return err
+	}
+
+	evt := &types.RingSubmitInfoEvent{}
+	evt.SubmitInfoId = daoInfo.ID
+	evt.Miner = ringState.Miner
+	evt.Ringhash = ringState.Ringhash
+	evt.UniqueId = ringState.RawRing.GenerateUniqueId()
+	evt.ProtocolAddress = ringState.ProtocolAddress
+	evt.ProtocolGas = ringState.ProtocolGas
+	evt.ProtocolGasPrice = ringState.ProtocolGasPrice
+	evt.ProtocolData = common.ToHex(ringState.ProtocolData)
+
+	if _, _, err := market.matcher.messageProducer.SendMessage(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+strings.ToLower(evt.Miner.Hex()), evt, evt.Ringhash.Hex()); nil != err {
+		log.Errorf("err:%s", err.Error())
+		if err1 := market.matcher.db.UpdateRingSubmitInfoErrById(evt.SubmitInfoId, err); nil != err1 {
+			log.Errorf("err:%s", err1.Error())
+		}
+		return err
+	}
+	return nil
 }
 
 func (market *Market) reduceReceivedOfCandidateRing(list CandidateRingList, filledOrder *types.FilledOrder, isFullFilled bool) CandidateRingList {

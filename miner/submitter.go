@@ -22,7 +22,6 @@ import (
 	"errors"
 	"math/big"
 
-	"encoding/json"
 	"github.com/Loopring/miner/config"
 	"github.com/Loopring/miner/dao"
 	"github.com/Loopring/relay-lib/eth/accessor"
@@ -33,9 +32,11 @@ import (
 	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
+	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
+	"strings"
 )
 
 //保存ring，并将ring发送到区块链，同样需要分为待完成和已完成
@@ -55,12 +56,18 @@ type RingSubmitter struct {
 
 	messageProducer *kafka.MessageProducer
 
+	newRingSubmitInfoConsumer *kafka.ConsumerRegister
+
 	stopFuncs []func()
 }
 
 type RingSubmitFailed struct {
 	RingState *types.Ring
 	err       error
+}
+
+func getKafkaGroup() string {
+	return "submitter_"
 }
 
 func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl, brokers []string) (*RingSubmitter, error) {
@@ -72,6 +79,9 @@ func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl, bro
 	} else {
 		return submitter, errors.New("miner.feeReceipt must be a address")
 	}
+
+	submitter.newRingSubmitInfoConsumer = &kafka.ConsumerRegister{}
+	submitter.newRingSubmitInfoConsumer.Initialize(brokers)
 
 	for _, addr := range options.NormalMiners {
 		var nonce types.Big
@@ -143,84 +153,94 @@ func (submitter *RingSubmitter) listenBlockNew() {
 	})
 }
 
-func (submitter *RingSubmitter) listenNewRings() {
-	//ringSubmitInfoChan := make(chan []*types.RingSubmitInfo)
-	//go func() {
-	//	for {
-	//		select {
-	//		case ringInfos := <-ringSubmitInfoChan:
-	//			if nil != ringInfos {
-	//				for _, ringState := range ringInfos {
-	//					txHash, status, err1 := submitter.submitRing(ringState)
-	//					ringState.SubmitTxHash = txHash
-	//
-	//					daoInfo := &dao.RingSubmitInfo{}
-	//					daoInfo.ConvertDown(ringState, err1)
-	//					if err := submitter.dbService.Add(daoInfo); nil != err {
-	//						log.Errorf("Miner submitter,insert new ring err:%s", err.Error())
-	//					} else {
-	//						for _, filledOrder := range ringState.RawRing.Orders {
-	//							daoOrder := &dao.FilledOrder{}
-	//							daoOrder.ConvertDown(filledOrder, ringState.Ringhash)
-	//							if err1 := submitter.dbService.Add(daoOrder); nil != err1 {
-	//								log.Errorf("Miner submitter,insert filled Order err:%s", err1.Error())
-	//							}
-	//						}
-	//					}
-	//					submitter.submitResult(ringState.Ringhash, ringState.RawRing.GenerateUniqueId(), txHash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err1)
-	//				}
-	//			}
-	//		}
-	//	}
-	//}()
-	watcher := &eventemitter.Watcher{
-		Concurrent: false,
-		Handle: func(eventData eventemitter.EventData) error {
-			ringInfos := eventData.([]*types.RingSubmitInfo)
-			log.Debugf("received ringstates length:%d", len(ringInfos))
-			//ringSubmitInfoChan <- e
-			if nil != ringInfos {
-				for _, ringInfo := range ringInfos {
-					txHash, status, tx, err1 := submitter.submitRing(ringInfo)
-					ringInfo.SubmitTxHash = txHash
+//func (submitter *RingSubmitter) listenNewRings() {
+//	//ringSubmitInfoChan := make(chan []*types.RingSubmitInfo)
+//	//go func() {
+//	//	for {
+//	//		select {
+//	//		case ringInfos := <-ringSubmitInfoChan:
+//	//			if nil != ringInfos {
+//	//				for _, ringState := range ringInfos {
+//	//					txHash, status, err1 := submitter.submitRing(ringState)
+//	//					ringState.SubmitTxHash = txHash
+//	//
+//	//					daoInfo := &dao.RingSubmitInfo{}
+//	//					daoInfo.ConvertDown(ringState, err1)
+//	//					if err := submitter.dbService.Add(daoInfo); nil != err {
+//	//						log.Errorf("Miner submitter,insert new ring err:%s", err.Error())
+//	//					} else {
+//	//						for _, filledOrder := range ringState.RawRing.Orders {
+//	//							daoOrder := &dao.FilledOrder{}
+//	//							daoOrder.ConvertDown(filledOrder, ringState.Ringhash)
+//	//							if err1 := submitter.dbService.Add(daoOrder); nil != err1 {
+//	//								log.Errorf("Miner submitter,insert filled Order err:%s", err1.Error())
+//	//							}
+//	//						}
+//	//					}
+//	//					submitter.submitResult(ringState.Ringhash, ringState.RawRing.GenerateUniqueId(), txHash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err1)
+//	//				}
+//	//			}
+//	//		}
+//	//	}
+//	//}()
+//	watcher := &eventemitter.Watcher{
+//		Concurrent: false,
+//		Handle: func(eventData eventemitter.EventData) error {
+//			ringInfos := eventData.([]*types.RingSubmitInfo)
+//			log.Debugf("received ringstates length:%d", len(ringInfos))
+//			//ringSubmitInfoChan <- e
+//			if nil != ringInfos {
+//				for _, ringState := range ringInfos {
+//					txHash, status, err1 := submitter.submitRing(ringState)
+//					ringState.SubmitTxHash = txHash
+//
+//					daoInfo := &dao.RingSubmitInfo{}
+//					daoInfo.ConvertDown(ringState, err1)
+//					if err := submitter.dbService.Add(daoInfo); nil != err {
+//						log.Errorf("Miner submitter,insert new ring err:%s", err.Error())
+//					} else {
+//						for _, filledOrder := range ringState.RawRing.Orders {
+//							daoOrder := &dao.FilledOrder{}
+//							daoOrder.ConvertDown(filledOrder, ringState.Ringhash)
+//							if err1 := submitter.dbService.Add(daoOrder); nil != err1 {
+//								log.Errorf("Miner submitter,insert filled Order err:%s", err1.Error())
+//							}
+//						}
+//					}
+//					submitter.submitResult(ringState.Ringhash, ringState.RawRing.GenerateUniqueId(), txHash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err1)
+//				}
+//			}
+//			return nil
+//		},
+//	}
+//	eventemitter.On(eventemitter.Miner_NewRing, watcher)
+//	submitter.stopFuncs = append(submitter.stopFuncs, func() {
+//		//close(ringSubmitInfoChan)
+//		eventemitter.Un(eventemitter.Miner_NewRing, watcher)
+//	})
+//}
 
-					daoInfo := &dao.RingSubmitInfo{}
-					daoInfo.ConvertDown(ringInfo, err1)
-					if err := submitter.dbService.Add(daoInfo); nil != err {
-						log.Errorf("Miner submitter,insert new ring err:%s", err.Error())
-					} else {
-						for _, filledOrder := range ringInfo.RawRing.Orders {
-							daoOrder := &dao.FilledOrder{}
-							daoOrder.ConvertDown(filledOrder, ringInfo.Ringhash)
-							if err1 := submitter.dbService.Add(daoOrder); nil != err1 {
-								log.Errorf("Miner submitter,insert filled Order err:%s", err1.Error())
-							} else {
-								submitter.sendPendingTransaction(tx, ringInfo.Miner)
-							}
-						}
-					}
-					submitter.submitResult(ringInfo.Ringhash, ringInfo.RawRing.GenerateUniqueId(), txHash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err1)
-				}
-			}
-			return nil
-		},
+func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
+	if evt, ok := input.(*types.RingSubmitInfoEvent); ok {
+		txhash, status, tx, err := submitter.submitRing(evt.Miner, evt.ProtocolAddress, evt.Ringhash, evt.ProtocolGas, evt.ProtocolGasPrice, common.FromHex(evt.ProtocolData))
+		if nil != err {
+			log.Errorf("err:%s", err.Error())
+		}
+		if types.TX_STATUS_PENDING == status {
+			submitter.sendPendingTransaction(tx, evt.Miner)
+		}
+		submitter.submitResult(evt.SubmitInfoId, evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
+	} else {
+		log.Errorf("receive submitInfo ,but type not match")
+		return errors.New("type not match")
 	}
-	eventemitter.On(eventemitter.Miner_NewRing, watcher)
-	submitter.stopFuncs = append(submitter.stopFuncs, func() {
-		//close(ringSubmitInfoChan)
-		eventemitter.Un(eventemitter.Miner_NewRing, watcher)
-	})
+	return nil
 }
 
-//todo: 不在submit中的才会提交
-func (submitter *RingSubmitter) canSubmit(ringState *types.RingSubmitInfo) error {
-	return errors.New("had been processed")
-}
-
-func (submitter *RingSubmitter) submitRing(ringSubmitInfo *types.RingSubmitInfo) (common.Hash, types.TxStatus, *ethTypes.Transaction, error) {
+func (submitter *RingSubmitter) submitRing(miner, protocolAddress common.Address, ringhash common.Hash, gas, gasPrice *big.Int, callData []byte) (common.Hash, types.TxStatus, *ethTypes.Transaction, error) {
 	status := types.TX_STATUS_PENDING
-	ordersStr, _ := json.Marshal(ringSubmitInfo.RawRing.Orders)
-	log.Debugf("submitring hash:%s, orders:%s", ringSubmitInfo.Ringhash.Hex(), string(ordersStr))
+	//ordersStr, _ := json.Marshal(ringSubmitInfo.RawRing.Orders)
+	//log.Debugf("submitring hash:%s, orders:%s", ringSubmitInfo.Ringhash.Hex(), string(ordersStr))
 
 	txHash := types.NilHash
 	var err error
@@ -228,15 +248,15 @@ func (submitter *RingSubmitter) submitRing(ringSubmitInfo *types.RingSubmitInfo)
 	var tx *ethTypes.Transaction
 	if nil == err {
 		txHashStr := "0x"
-		txHashStr, tx, err = accessor.SignAndSendTransaction(ringSubmitInfo.Miner, ringSubmitInfo.ProtocolAddress, ringSubmitInfo.ProtocolGas, ringSubmitInfo.ProtocolGasPrice, nil, ringSubmitInfo.ProtocolData, false)
+		txHashStr, tx, err = accessor.SignAndSendTransaction(miner, protocolAddress, gas, gasPrice, nil, callData, false)
 		if nil != err {
-			log.Errorf("submitring hash:%s, err:%s", ringSubmitInfo.Ringhash.Hex(), err.Error())
+			log.Errorf("submitring hash:%s, err:%s", ringhash, err.Error())
 			status = types.TX_STATUS_FAILED
 		}
 
 		txHash = common.HexToHash(txHashStr)
 	} else {
-		log.Errorf("submitring hash:%s, protocol:%s, err:%s", ringSubmitInfo.Ringhash.Hex(), ringSubmitInfo.ProtocolAddress.Hex(), err.Error())
+		log.Errorf("submitring hash:%s, protocol:%s, err:%s", ringhash.Hex(), protocolAddress.Hex(), err.Error())
 		status = types.TX_STATUS_FAILED
 	}
 
@@ -301,7 +321,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 				for _, info := range infos {
 					ringhash := common.HexToHash(info.RingHash)
 					uniqueId := common.HexToHash(info.UniqueId)
-					submitter.submitResult(ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
+					submitter.submitResult(0, ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
 				}
 			}
 			return nil
@@ -315,11 +335,12 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 	})
 }
 
-func (submitter *RingSubmitter) submitResult(ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
+func (submitter *RingSubmitter) submitResult(recordId int, ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
 	if nil == err {
 		err = errors.New("")
 	}
 	resultEvt := &types.RingSubmitResultEvent{
+		RecordId:     recordId,
 		RingHash:     ringhash,
 		RingUniqueId: uniqeId,
 		TxHash:       txhash,
@@ -405,6 +426,23 @@ func (submitter *RingSubmitter) GenerateRingSubmitInfo(ringState *types.Ring) (*
 func (submitter *RingSubmitter) stop() {
 	for _, stop := range submitter.stopFuncs {
 		stop()
+	}
+}
+
+const (
+	ZKLOCK_SUBMITTER_MINER_ADDR_PRE = "zklock_submitter_miner_addr_"
+)
+
+func (submitter *RingSubmitter) listenNewRings() {
+	for _, minerAddr := range submitter.normalMinerAddresses {
+		go func(minerAddr common.Address) {
+			addr := strings.ToLower(minerAddr.Hex())
+			zklock.TryLock(ZKLOCK_SUBMITTER_MINER_ADDR_PRE + addr)
+			submitter.stopFuncs = append(submitter.stopFuncs, func() {
+				zklock.ReleaseLock(ZKLOCK_SUBMITTER_MINER_ADDR_PRE + addr)
+			})
+			submitter.newRingSubmitInfoConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+addr, getKafkaGroup(), types.RingSubmitInfoEvent{}, submitter.handleNewRing)
+		}(minerAddr.Address)
 	}
 }
 

@@ -22,7 +22,6 @@ import (
 	"errors"
 	"math/big"
 
-	"encoding/json"
 	"github.com/Loopring/miner/config"
 	"github.com/Loopring/miner/dao"
 	"github.com/Loopring/relay-lib/eth/accessor"
@@ -223,9 +222,12 @@ func (submitter *RingSubmitter) listenBlockNew() {
 
 func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 	if evt, ok := input.(types.RingSubmitInfoEvent); ok {
-		txhash, status, err := submitter.submitRing(evt.Miner, evt.ProtocolAddress, evt.Ringhash, evt.ProtocolGas, evt.ProtocolGasPrice, common.FromHex(evt.ProtocolData))
+		txhash, status, tx, err := submitter.submitRing(evt.Miner, evt.ProtocolAddress, evt.Ringhash, evt.ProtocolGas, evt.ProtocolGasPrice, common.FromHex(evt.ProtocolData))
 		if nil != err {
 			log.Errorf("err:%s", err.Error())
+		}
+		if types.TX_STATUS_PENDING == status {
+			submitter.sendPendingTransaction(tx, evt.Miner)
 		}
 		submitter.submitResult(evt.SubmitInfoId, evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
 	} else {

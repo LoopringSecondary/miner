@@ -221,7 +221,7 @@ func (submitter *RingSubmitter) listenBlockNew() {
 //}
 
 func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
-	if evt, ok := input.(types.RingSubmitInfoEvent); ok {
+	if evt, ok := input.(*types.RingSubmitInfoEvent); ok {
 		txhash, status, tx, err := submitter.submitRing(evt.Miner, evt.ProtocolAddress, evt.Ringhash, evt.ProtocolGas, evt.ProtocolGasPrice, common.FromHex(evt.ProtocolData))
 		if nil != err {
 			log.Errorf("err:%s", err.Error())
@@ -235,11 +235,6 @@ func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 		return errors.New("type not match")
 	}
 	return nil
-}
-
-//todo: 不在submit中的才会提交
-func (submitter *RingSubmitter) canSubmit(ringState *types.RingSubmitInfo) error {
-	return errors.New("had been processed")
 }
 
 func (submitter *RingSubmitter) submitRing(miner, protocolAddress common.Address, ringhash common.Hash, gas, gasPrice *big.Int, callData []byte) (common.Hash, types.TxStatus, *ethTypes.Transaction, error) {
@@ -446,7 +441,7 @@ func (submitter *RingSubmitter) listenNewRings() {
 			submitter.stopFuncs = append(submitter.stopFuncs, func() {
 				zklock.ReleaseLock(ZKLOCK_SUBMITTER_MINER_ADDR_PRE + addr)
 			})
-			submitter.newRingSubmitInfoConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+addr, getKafkaGroup(), types.BlockEvent{}, submitter.handleNewRing)
+			submitter.newRingSubmitInfoConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+addr, getKafkaGroup(), types.RingSubmitInfoEvent{}, submitter.handleNewRing)
 		}(minerAddr.Address)
 	}
 }

@@ -73,6 +73,9 @@ func NewTimingMatcher(matcherOptions *config.TimingMatcher,
 	matcher := &TimingMatcher{}
 	matcher.blockEndConsumer = &kafka.ConsumerRegister{}
 	matcher.blockEndConsumer.Initialize(kafkaOptions.Brokers)
+
+	matcher.messageProducer = &kafka.MessageProducer{}
+	matcher.messageProducer.Initialize(kafkaOptions.Brokers)
 	matcher.relayProcessedBlockNumber = big.NewInt(int64(0))
 	matcher.submitter = submitter
 	matcher.evaluator = evaluator

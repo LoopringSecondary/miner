@@ -124,7 +124,7 @@ func unlockAccount(ctx *cli.Context, globalConfig *config.GlobalConfig) {
 			passphrase = passwords[idx]
 			if err := crypto.UnlockKSAccount(acc, passphrase); nil != err {
 				if keystore.ErrNoMatch == err {
-					log.Fatalf("err:", err.Error())
+					log.Fatalf("err:%s", err.Error())
 				} else {
 					utils.ExitWithErr(ctx.App.Writer, errors.New("failed to unlock address:"+acc.Address.Hex()+"  err:"+err.Error()))
 				}

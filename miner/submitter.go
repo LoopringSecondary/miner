@@ -22,11 +22,13 @@ import (
 	"errors"
 	"math/big"
 
+	"encoding/json"
 	"github.com/Loopring/miner/config"
 	"github.com/Loopring/miner/dao"
 	"github.com/Loopring/relay-lib/eth/accessor"
 	"github.com/Loopring/relay-lib/eth/contract"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
+	libEthTypes "github.com/Loopring/relay-lib/eth/types"
 	"github.com/Loopring/relay-lib/eventemitter"
 	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
@@ -34,6 +36,7 @@ import (
 	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
+	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"strings"
 )
 
@@ -51,6 +54,8 @@ type RingSubmitter struct {
 
 	dbService dao.RdsServiceImpl
 	matcher   Matcher
+
+	messageProducer *kafka.MessageProducer
 
 	newRingSubmitInfoConsumer *kafka.ConsumerRegister
 
@@ -110,6 +115,14 @@ func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl, bro
 
 	submitter.dbService = dbService
 
+	if len(brokers) > 0 {
+		submitter.messageProducer = &kafka.MessageProducer{}
+		if err := submitter.messageProducer.Initialize(brokers); nil != err {
+			log.Fatalf("Failed init producerWrapped %s", err.Error())
+		}
+	} else {
+		log.Errorf("There is not brokers of kafka to send msg.")
+	}
 	submitter.stopFuncs = []func(){}
 	return submitter, nil
 }
@@ -227,7 +240,7 @@ func (submitter *RingSubmitter) canSubmit(ringState *types.RingSubmitInfo) error
 	return errors.New("had been processed")
 }
 
-func (submitter *RingSubmitter) submitRing(miner, protocolAddress common.Address, ringhash common.Hash, gas, gasPrice *big.Int, callData []byte) (common.Hash, types.TxStatus, error) {
+func (submitter *RingSubmitter) submitRing(miner, protocolAddress common.Address, ringhash common.Hash, gas, gasPrice *big.Int, callData []byte) (common.Hash, types.TxStatus, *ethTypes.Transaction, error) {
 	status := types.TX_STATUS_PENDING
 	//ordersStr, _ := json.Marshal(ringSubmitInfo.RawRing.Orders)
 	//log.Debugf("submitring hash:%s, orders:%s", ringSubmitInfo.Ringhash.Hex(), string(ordersStr))
@@ -235,20 +248,49 @@ func (submitter *RingSubmitter) submitRing(miner, protocolAddress common.Address
 	txHash := types.NilHash
 	var err error
 
+	var tx *ethTypes.Transaction
 	if nil == err {
 		txHashStr := "0x"
-		txHashStr, err = accessor.SignAndSendTransaction(miner, protocolAddress, gas, gasPrice, nil, callData, false)
+		txHashStr, tx, err = accessor.SignAndSendTransaction(miner, protocolAddress, gas, gasPrice, nil, callData, false)
 		if nil != err {
 			log.Errorf("submitring hash:%s, err:%s", ringhash, err.Error())
 			status = types.TX_STATUS_FAILED
 		}
+
 		txHash = common.HexToHash(txHashStr)
 	} else {
 		log.Errorf("submitring hash:%s, protocol:%s, err:%s", ringhash.Hex(), protocolAddress.Hex(), err.Error())
 		status = types.TX_STATUS_FAILED
 	}
 
-	return txHash, status, err
+	return txHash, status, tx, err
+}
+
+func (submitter *RingSubmitter) sendPendingTransaction(tx *ethTypes.Transaction, from common.Address) {
+	if nil != tx {
+		//hash,nonce,from,to,value,gasprice,gas,input
+		libTx := &libEthTypes.Transaction{}
+		libTx.Hash = tx.Hash().Hex()
+		libTx.From = from.Hex()
+		libTx.To = tx.To().Hex()
+		gas, gasPrice, nonce, value := new(types.Big), new(types.Big), new(types.Big), new(types.Big)
+		gas.SetInt(new(big.Int).SetUint64(tx.Gas()))
+		gasPrice.SetInt(tx.GasPrice())
+		nonce.SetInt(new(big.Int).SetUint64(tx.Nonce()))
+		value.SetInt(tx.Value())
+		libTx.Value = *value
+		libTx.Gas = *gas
+		libTx.GasPrice = *gasPrice
+		libTx.Input = common.ToHex(tx.Data())
+		libTx.Nonce = *nonce
+		if nil != submitter.messageProducer {
+			if _, _, err2 := submitter.messageProducer.SendMessage(kafka.Kafka_Topic_Extractor_PendingTransaction, libTx, libTx.Hash); nil != err2 {
+				log.Errorf("err:%s", err2.Error())
+			}
+		} else {
+			log.Debugf("submitter.messageProducer is nil, and the submitorderEvent will not be send.")
+		}
+	}
 }
 
 func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {

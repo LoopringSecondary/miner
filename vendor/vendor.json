@@ -171,10 +171,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "gLY4fYOxgyvEDJARZFd6AEHtQSA=",
+			"checksumSHA1": "gzHbaVvQAM9e/nNDuAm70F3S5Ck=",
 			"path": "github.com/Loopring/relay-lib/eth/accessor",
-			"revision": "3c196fe2b44af07592d3929f04b5c867a3cc3ef4",
-			"revisionTime": "2018-05-24T09:59:38Z"
+			"revision": "a43406a85ddb5dff825f8d17b09791a7fc5248eb",
+			"revisionTime": "2018-05-28T10:16:07Z"
 		},
 		{
 			"checksumSHA1": "nK28KOhmrzJqE5Fi28JcRx9okHs=",
@@ -213,10 +213,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "ygPW2fNOkIMyH4u7JxeGNtYFQV8=",
+			"checksumSHA1": "WBYJKye0CqpwmeGfkGGRYfwuaHs=",
 			"path": "github.com/Loopring/relay-lib/kafka",
-			"revision": "c4d72baeea2d153f7fb160e4b993b41d6f100d3f",
-			"revisionTime": "2018-05-28T06:51:08Z"
+			"revision": "3c196fe2b44af07592d3929f04b5c867a3cc3ef4",
+			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
 			"checksumSHA1": "JjFEjU8YY4HP+oaGiGI9O8xg+3k=",
@@ -249,10 +249,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "VQ5pMJ7OvqQTQm0FwHIa2fwJvf4=",
+			"checksumSHA1": "8qaom2k8fwxIIhOxF/SVwoSN/sU=",
 			"path": "github.com/Loopring/relay-lib/types",
-			"revision": "c4d72baeea2d153f7fb160e4b993b41d6f100d3f",
-			"revisionTime": "2018-05-28T06:51:08Z"
+			"revision": "a43406a85ddb5dff825f8d17b09791a7fc5248eb",
+			"revisionTime": "2018-05-28T10:16:07Z"
 		},
 		{
 			"checksumSHA1": "uTx8V1W6ZP0sYRlErDTDm+VzqFg=",

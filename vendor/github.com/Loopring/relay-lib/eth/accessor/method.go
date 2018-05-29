@@ -101,8 +101,13 @@ func (accessor *ethNodeAccessor) BatchTransactions(routeParam string, retry int,
 				}
 			}
 		}
+
+		// 第一次后如果没拿到则等待1s
+		if repeatCnt > 0 {
+			time.Sleep(1 * time.Second)
+		}
 		repeatCnt++
-		time.Sleep(1 * time.Second)
+
 		log.Debugf("accessor,BatchTransactions %d's time to get Transaction:%s", repeatCnt, reqs[idx].TxHash)
 		_, v.Error = accessor.Call(routeParam, &reqs[idx].TxContent, "eth_getTransactionByHash", reqs[idx].TxHash)
 		goto mark
@@ -145,8 +150,12 @@ func (accessor *ethNodeAccessor) BatchTransactionRecipients(routeParam string, r
 				}
 			}
 		}
+
+		if repeatCnt > 0 {
+			time.Sleep(1 * time.Second)
+		}
 		repeatCnt++
-		time.Sleep(1 * time.Second)
+
 		log.Debugf("accessor,BatchTransactions %d's time to get TransactionReceipt:%s and statusInvalid:%t", repeatCnt, reqs[idx].TxHash, reqs[idx].TxContent.StatusInvalid())
 		_, v.Error = accessor.Call(routeParam, &reqs[idx].TxContent, "eth_getTransactionReceipt", reqs[idx].TxHash)
 		goto mark
@@ -210,17 +219,17 @@ func (ethAccessor *ethNodeAccessor) SignAndSendTransaction(result interface{}, s
 	}
 }
 
-func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string, sender common.Address, to common.Address, gas, gasPrice, value *big.Int, callData []byte, needPreExe bool) (string, error) {
+func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string, sender common.Address, to common.Address, gas, gasPrice, value *big.Int, callData []byte, needPreExe bool) (string, *ethTypes.Transaction, error) {
 	if nil == gasPrice || gasPrice.Cmp(big.NewInt(0)) <= 0 {
-		return "", errors.New("gasPrice must be setted.")
+		return "", nil, errors.New("gasPrice must be setted.")
 	}
 	if nil == gas || gas.Cmp(big.NewInt(0)) <= 0 {
-		return "", errors.New("gas must be setted.")
+		return "", nil, errors.New("gas must be setted.")
 	}
 	var txHash string
 	if needPreExe {
 		if estimagetGas, _, err := EstimateGas(callData, to, "latest"); nil != err {
-			return txHash, err
+			return txHash, nil, err
 		} else {
 			gas = estimagetGas
 		}
@@ -252,25 +261,25 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 			callData)
 		if err := accessor.SignAndSendTransaction(&txHash, sender, transaction); nil != err {
 			log.Errorf("send raw transaction err:%s, manual check it please.", err.Error())
-			return "", err
+			return "", nil, err
 		}
 		//} else {
 		//
 		//}
 	}
 	accessor.addressNextNonce(sender)
-	return txHash, nil
+	return txHash, transaction, nil
 }
 
 //gas, gasPrice can be set to nil
-func (accessor *ethNodeAccessor) ContractSendTransactionMethod(routeParam string, a *abi.ABI, contractAddress common.Address) func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, args ...interface{}) (string, error) {
-	return func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, args ...interface{}) (string, error) {
+func (accessor *ethNodeAccessor) ContractSendTransactionMethod(routeParam string, a *abi.ABI, contractAddress common.Address) func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, args ...interface{}) (string, *ethTypes.Transaction, error) {
+	return func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, args ...interface{}) (string, *ethTypes.Transaction, error) {
 		if callData, err := a.Pack(methodName, args...); nil != err {
-			return "", err
+			return "", nil, err
 		} else {
 			if nil == gas || nil == gasPrice {
 				if gas, gasPrice, err = accessor.EstimateGas(routeParam, callData, contractAddress); nil != err {
-					return "", err
+					return "", nil, err
 				}
 			}
 			gas.Add(gas, big.NewInt(int64(1000)))

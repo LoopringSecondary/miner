@@ -57,14 +57,15 @@ type OrdersState struct {
 }
 
 func (orders *OrdersState) prepareOrders(delegateAddress common.Address, market *Market, tokenS, tokenB common.Address) {
+	log.Debugf("prepareOrders, tokenS:%s, tokenB:%s", tokenS.Hex(), tokenB.Hex())
 	currentRoundNumber := market.matcher.lastRoundNumber.Int64()
 	deleyedNumber := market.matcher.delayedNumber + currentRoundNumber
 
-	orders1 := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: orders.OrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
+	orders1 := datasource.MinerOrders(delegateAddress, tokenS, tokenB, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: orders.OrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
 
 	if len(orders1) < market.matcher.roundOrderCount {
 		orderCount := market.matcher.roundOrderCount - len(orders1)
-		orders2 := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
+		orders2 := datasource.MinerOrders(delegateAddress, tokenS, tokenB, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
 		orders1 = append(orders1, orders2...)
 	}
 
@@ -263,8 +264,8 @@ func (market *Market) reduceReceivedOfCandidateRing(list CandidateRingList, fill
 get orders from ordermanager
 */
 func (market *Market) getOrdersForMatching(delegateAddress common.Address) {
-	market.AtoBOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
-	market.BtoAOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
+	market.AtoBOrders.Orders = make(map[common.Hash]*types.OrderState)
+	market.BtoAOrders.Orders = make(map[common.Hash]*types.OrderState)
 
 	market.AtoBOrders.prepareOrders(delegateAddress, market, market.TokenA, market.TokenB)
 	market.BtoAOrders.prepareOrders(delegateAddress, market, market.TokenB, market.TokenA)

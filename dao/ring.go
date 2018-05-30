@@ -21,6 +21,7 @@ package dao
 import (
 	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"math/big"
 	"time"
@@ -211,11 +212,14 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 		items["err"] = submitResult.Err
 	}
 
-	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("ringhash = ? and protocol_tx_hash = ? ", submitResult.RingHash.Hex(), submitResult.TxHash.Hex())
-	//todo:test it
+	var dbForUpdate *gorm.DB
 	if submitResult.RecordId > 0 {
-		dbForUpdate.Where("id = ?", submitResult.RecordId)
+		dbForUpdate = s.Db.Model(&RingSubmitInfo{}).Where("id = ?", submitResult.RecordId)
+	} else {
+		dbForUpdate = s.Db.Model(&RingSubmitInfo{}).Where("ringhash = ? and protocol_tx_hash = ? ", submitResult.RingHash.Hex(), submitResult.TxHash.Hex())
 	}
+	//todo:test it
+
 	return dbForUpdate.Update(items).Error
 }
 

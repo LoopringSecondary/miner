@@ -287,6 +287,7 @@ func (submitter *RingSubmitter) sendPendingTransaction(tx *ethTypes.Transaction,
 		} else {
 			log.Debugf("submitter.messageProducer is nil, and the submitorderEvent will not be send.")
 		}
+		log.Debugf("sendPendingSubmitRing txhash:%s", libTx.Hash)
 	}
 }
 

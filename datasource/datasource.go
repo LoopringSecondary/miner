@@ -43,78 +43,98 @@ const (
 	MOTAN Mode = 2
 )
 
-type dataSource struct {
-	mode        Mode
-	orderView   ordermanager.OrderViewer
+type localDataSource struct {
+	orderView ordermanager.OrderViewer
+}
+
+func (source *localDataSource) GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allowance *big.Int, err error) {
+	return accountmanager.GetBalanceAndAllowance(owner, token, spender)
+}
+
+func (source *localDataSource) MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTime, startBlockNumber, endBlockNumber int64, filterOrderHashLists ...*types.OrderDelayList) []*types.OrderState {
+	return source.orderView.MinerOrders(protocol, tokenS, tokenB, length, reservedTime, startBlockNumber, endBlockNumber, filterOrderHashLists...)
+}
+
+type motanDataSource struct {
 	motanClient *motan.Client
+}
+
+func (source *motanDataSource) GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allowance *big.Int, err error) {
+	req := &libmotan.AccountBalanceAndAllowanceReq{
+		Owner:   owner,
+		Token:   token,
+		Spender: spender,
+	}
+	res := &libmotan.AccountBalanceAndAllowanceRes{}
+	if err := source.motanClient.Call("getBalanceAndAllowance", []interface{}{req}, res); nil != err || "" != res.Err {
+		if "" != res.Err {
+			if nil != err {
+				err = errors.New(err.Error() + " ; " + res.Err)
+			} else {
+				err = errors.New(res.Err)
+			}
+		}
+		return nil, nil, err
+	} else {
+		return res.Balance, res.Allowance, nil
+	}
+}
+
+func (source *motanDataSource) MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTime, startBlockNumber, endBlockNumber int64, filterOrderHashLists ...*types.OrderDelayList) []*types.OrderState {
+	orders := []*types.OrderState{}
+	req := &libmotan.MinerOrdersReq{
+		Delegate:             protocol,
+		TokenS:               tokenS,
+		TokenB:               tokenB,
+		Length:               length,
+		ReservedTime:         reservedTime,
+		StartBlockNumber:     startBlockNumber,
+		EndBlockNumber:       endBlockNumber,
+		FilterOrderHashLists: filterOrderHashLists,
+	}
+	res := &libmotan.MinerOrdersRes{}
+	if err := source.motanClient.Call("getMinerOrders", []interface{}{req}, res); nil != err {
+		log.Errorf("err:%s", err.Error())
+	} else {
+		orders = res.List
+	}
+	return orders
+}
+
+type dataSource interface {
+	GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allowance *big.Int, err error)
+	MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTime, startBlockNumber, endBlockNumber int64, filterOrderHashLists ...*types.OrderDelayList) []*types.OrderState
 }
 
 var source dataSource
 
+func initializeLocal(options config.DataSource, rdsOptions *dao.MysqlOptions, marketcapProvider marketcap.MarketCapProvider) {
+	dSource := &localDataSource{}
+	orderRds := orderDao.NewDb(rdsOptions)
+	um := &usermanager.UserManagerImpl{}
+	dSource.orderView = ordermanager.NewOrderViewer(&options.OrderManager, orderRds, marketcapProvider, um)
+	accountmanager.Initialize(&options.AccountManager, []string{})
+	source = dSource
+}
+
+func initializeMotan(options config.DataSource) {
+	dSource := &motanDataSource{}
+	dSource.motanClient = libmotan.InitClient(options.MotanClient)
+	source = dSource
+}
+
 func Initialize(options config.DataSource, rdsOptions *dao.MysqlOptions, marketcapProvider marketcap.MarketCapProvider) {
-	source = dataSource{}
 	if "LOCAL" == strings.ToUpper(options.Type) {
-		source.mode = LOCAL
-		orderRds := orderDao.NewDb(rdsOptions)
-		um := &usermanager.UserManagerImpl{}
-		source.orderView = ordermanager.NewOrderViewer(&options.OrderManager, orderRds, marketcapProvider, um)
-		accountmanager.Initialize(&options.AccountManager, []string{})
+		initializeLocal(options, rdsOptions, marketcapProvider)
 	} else {
-		source.mode = MOTAN
-		source.motanClient = libmotan.InitClient(options.MotanClient)
+		initializeMotan(options)
 	}
 }
 
 func GetBalanceAndAllowance(owner, token, spender common.Address) (balance, allowance *big.Int, err error) {
-	switch source.mode {
-	case LOCAL:
-		return accountmanager.GetBalanceAndAllowance(owner, token, spender)
-	case MOTAN:
-		req := &libmotan.AccountBalanceAndAllowanceReq{
-			Owner:   owner,
-			Token:   token,
-			Spender: spender,
-		}
-		res := &libmotan.AccountBalanceAndAllowanceRes{}
-		if err := source.motanClient.Call("getBalanceAndAllowance", []interface{}{req}, res); nil != err || "" != res.Err {
-			if "" != res.Err {
-				if nil != err {
-					err = errors.New(err.Error() + " ; " + res.Err)
-				} else {
-					err = errors.New(res.Err)
-				}
-			}
-			return nil, nil, err
-		} else {
-			return res.Balance, res.Allowance, nil
-		}
-	}
-	return nil, nil, errors.New("error")
+	return source.GetBalanceAndAllowance(owner, token, spender)
 }
 
 func MinerOrders(protocol, tokenS, tokenB common.Address, length int, reservedTime, startBlockNumber, endBlockNumber int64, filterOrderHashLists ...*types.OrderDelayList) []*types.OrderState {
-	log.Debugf("getMinerOrders, ...")
-	orders := []*types.OrderState{}
-	switch source.mode {
-	case LOCAL:
-		orders = source.orderView.MinerOrders(protocol, tokenS, tokenB, length, reservedTime, startBlockNumber, endBlockNumber, filterOrderHashLists...)
-	case MOTAN:
-		req := &libmotan.MinerOrdersReq{
-			Delegate:             protocol,
-			TokenS:               tokenS,
-			TokenB:               tokenB,
-			Length:               length,
-			ReservedTime:         reservedTime,
-			StartBlockNumber:     startBlockNumber,
-			EndBlockNumber:       endBlockNumber,
-			FilterOrderHashLists: filterOrderHashLists,
-		}
-		res := &libmotan.MinerOrdersRes{}
-		if err := source.motanClient.Call("getMinerOrders", []interface{}{req}, res); nil != err {
-			log.Errorf("err:%s", err.Error())
-		} else {
-			orders = res.List
-		}
-	}
-	return orders
+	return source.MinerOrders(protocol, tokenS, tokenB, length, reservedTime, startBlockNumber, endBlockNumber, filterOrderHashLists...)
 }

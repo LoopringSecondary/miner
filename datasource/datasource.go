@@ -36,13 +36,6 @@ import (
 	"strings"
 )
 
-type Mode int
-
-const (
-	LOCAL Mode = 1
-	MOTAN Mode = 2
-)
-
 type localDataSource struct {
 	orderView ordermanager.OrderViewer
 }

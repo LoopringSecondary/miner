@@ -50,7 +50,7 @@ type Market struct {
 func (market *Market) match() {
 	market.getOrdersForMatching(market.protocolImpl.DelegateAddress)
 	matchedOrderHashes := make(map[common.Hash]bool) //true:fullfilled, false:partfilled
-	ringSubmitInfos := []*types.RingSubmitInfo{}
+	//ringSubmitInfos := []*types.RingSubmitInfo{}
 	candidateRingList := CandidateRingList{}
 
 	//step 1: evaluate received
@@ -129,7 +129,7 @@ func (market *Market) match() {
 				}
 				AddMinedRing(ringForSubmit)
 				//ringSubmitInfos = append(ringSubmitInfos, ringForSubmit)
-				if err := market.addSubmitInfo(ringForSubmit); nil != err {
+				if err := market.saveAndSendSubmitInfo(ringForSubmit); nil != err {
 					log.Errorf("err:%s", err.Error())
 					RemoveMinedRingAndReturnOrderhashes(ringForSubmit.Ringhash)
 				}
@@ -140,22 +140,28 @@ func (market *Market) match() {
 	}
 
 	for orderHash, _ := range market.AtoBOrders {
-		if fullFilled, exists := matchedOrderHashes[orderHash]; exists && fullFilled {
+		fullFilled, exists := matchedOrderHashes[orderHash]
+		if exists && fullFilled {
+			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, orderHash)
+		} else if !exists && (len(market.AtoBOrders) >= market.matcher.roundOrderCount) {
 			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, orderHash)
 		}
 	}
 
 	for orderHash, _ := range market.BtoAOrders {
-		if fullFilled, exists := matchedOrderHashes[orderHash]; exists && fullFilled {
+		fullFilled, exists := matchedOrderHashes[orderHash]
+		if exists && fullFilled {
 			market.BtoAOrderHashesExcludeNextRound = append(market.BtoAOrderHashesExcludeNextRound, orderHash)
+		} else if !exists && (len(market.BtoAOrders) >= market.matcher.roundOrderCount) {
+			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, orderHash)
 		}
 	}
-	if len(ringSubmitInfos) > 0 {
+	//if len(ringSubmitInfos) > 0 {
 		//eventemitter.Emit(eventemitter.Miner_NewRing, ringSubmitInfos)
-	}
+	//}
 }
 
-func (market *Market) addSubmitInfo(ringState *types.RingSubmitInfo) error {
+func (market *Market) saveAndSendSubmitInfo(ringState *types.RingSubmitInfo) error {
 	daoInfo := &dao.RingSubmitInfo{}
 	daoInfo.ConvertDown(ringState, errors.New(""))
 	for _, filledOrder := range ringState.RawRing.Orders {

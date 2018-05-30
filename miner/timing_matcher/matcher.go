@@ -31,6 +31,7 @@ import (
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/marketcap"
 	marketUtilLib "github.com/Loopring/relay-lib/marketutil"
+	"github.com/Loopring/relay-lib/types"
 	"strings"
 )
 
@@ -119,8 +120,8 @@ func NewTimingMatcher(matcherOptions *config.TimingMatcher,
 				m.matcher = matcher
 				m.TokenA = pair.TokenS
 				m.TokenB = pair.TokenB
-				m.AtoBOrderHashesExcludeNextRound = []common.Hash{}
-				m.BtoAOrderHashesExcludeNextRound = []common.Hash{}
+				m.AtoBOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
+				m.BtoAOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
 				matcher.markets = append(matcher.markets, m)
 			}
 		}

@@ -38,28 +38,70 @@ type Market struct {
 	matcher      *TimingMatcher
 	protocolImpl *loopringaccessor.ProtocolAddress
 
-	TokenA     common.Address
-	TokenB     common.Address
-	AtoBOrders map[common.Hash]*types.OrderState
-	BtoAOrders map[common.Hash]*types.OrderState
+	TokenA common.Address
+	TokenB common.Address
 
-	AtoBOrderHashesExcludeNextRound []common.Hash
-	BtoAOrderHashesExcludeNextRound []common.Hash
+	AtoBOrders *OrdersState
+	BtoAOrders *OrdersState
+
+	//AtoBOrders map[common.Hash]*types.OrderState
+	//BtoAOrders map[common.Hash]*types.OrderState
+	//
+	//AtoBOrderHashesExcludeNextRound []common.Hash
+	//BtoAOrderHashesExcludeNextRound []common.Hash
+}
+
+type OrdersState struct {
+	Orders                      map[common.Hash]*types.OrderState
+	OrderHashesExcludeNextRound []common.Hash
+}
+
+func (orders *OrdersState) prepareOrders(delegateAddress common.Address, market *Market, tokenS, tokenB common.Address) {
+	currentRoundNumber := market.matcher.lastRoundNumber.Int64()
+	deleyedNumber := market.matcher.delayedNumber + currentRoundNumber
+
+	orders1 := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: orders.OrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
+
+	if len(orders1) < market.matcher.roundOrderCount {
+		orderCount := market.matcher.roundOrderCount - len(orders1)
+		orders2 := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
+		orders1 = append(orders1, orders2...)
+	}
+
+	for _, order := range orders1 {
+		market.reduceRemainedAmountBeforeMatch(order)
+		if !market.isOrderFinished(order) {
+			orders.Orders[order.RawOrder.Hash] = order
+		} else {
+			orders.OrderHashesExcludeNextRound = append(orders.OrderHashesExcludeNextRound, order.RawOrder.Hash)
+		}
+		log.Debugf("order status in this new round:%s, orderhash:%s, DealtAmountS:%s, ", market.matcher.lastRoundNumber.String(), order.RawOrder.Hash.Hex(), order.DealtAmountS.String())
+	}
+}
+
+func (orders *OrdersState) applyExcludeHash(matchedOrderHashes map[common.Hash]bool, roundOrderCount int) {
+	for orderHash, _ := range orders.Orders {
+		fullFilled, exists := matchedOrderHashes[orderHash]
+		if exists && fullFilled {
+			orders.OrderHashesExcludeNextRound = append(orders.OrderHashesExcludeNextRound, orderHash)
+		} else if !exists && (len(orders.Orders) >= roundOrderCount) {
+			orders.OrderHashesExcludeNextRound = append(orders.OrderHashesExcludeNextRound, orderHash)
+		}
+	}
 }
 
 func (market *Market) match() {
 	market.getOrdersForMatching(market.protocolImpl.DelegateAddress)
 	matchedOrderHashes := make(map[common.Hash]bool) //true:fullfilled, false:partfilled
-	//ringSubmitInfos := []*types.RingSubmitInfo{}
 	candidateRingList := CandidateRingList{}
 
 	//step 1: evaluate received
-	for _, a2BOrder := range market.AtoBOrders {
+	for _, a2BOrder := range market.AtoBOrders.Orders {
 		if failedCount, err1 := OrderExecuteFailedCount(a2BOrder.RawOrder.Hash); nil == err1 && failedCount > market.matcher.maxFailedCount {
 			log.Debugf("orderhash:%s has been failed to submit %d times", a2BOrder.RawOrder.Hash.Hex(), failedCount)
 			continue
 		}
-		for _, b2AOrder := range market.BtoAOrders {
+		for _, b2AOrder := range market.BtoAOrders.Orders {
 			if failedCount, err1 := OrderExecuteFailedCount(b2AOrder.RawOrder.Hash); nil == err1 && failedCount > market.matcher.maxFailedCount {
 				log.Debugf("orderhash:%s has been failed to submit %d times", b2AOrder.RawOrder.Hash.Hex(), failedCount)
 				continue
@@ -93,10 +135,10 @@ func (market *Market) match() {
 		list = list[1:]
 		orders := []*types.OrderState{}
 		for hash, _ := range candidateRing.filledOrders {
-			if o, exists := market.AtoBOrders[hash]; exists {
+			if o, exists := market.AtoBOrders.Orders[hash]; exists {
 				orders = append(orders, o)
 			} else {
-				orders = append(orders, market.BtoAOrders[hash])
+				orders = append(orders, market.BtoAOrders.Orders[hash])
 			}
 		}
 		if ringForSubmit, err := market.generateRingSubmitInfo(orders...); nil != err {
@@ -139,26 +181,8 @@ func (market *Market) match() {
 		}
 	}
 
-	for orderHash, _ := range market.AtoBOrders {
-		fullFilled, exists := matchedOrderHashes[orderHash]
-		if exists && fullFilled {
-			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, orderHash)
-		} else if !exists && (len(market.AtoBOrders) >= market.matcher.roundOrderCount) {
-			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, orderHash)
-		}
-	}
-
-	for orderHash, _ := range market.BtoAOrders {
-		fullFilled, exists := matchedOrderHashes[orderHash]
-		if exists && fullFilled {
-			market.BtoAOrderHashesExcludeNextRound = append(market.BtoAOrderHashesExcludeNextRound, orderHash)
-		} else if !exists && (len(market.BtoAOrders) >= market.matcher.roundOrderCount) {
-			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, orderHash)
-		}
-	}
-	//if len(ringSubmitInfos) > 0 {
-		//eventemitter.Emit(eventemitter.Miner_NewRing, ringSubmitInfos)
-	//}
+	market.AtoBOrders.applyExcludeHash(matchedOrderHashes, market.matcher.roundOrderCount)
+	market.BtoAOrders.applyExcludeHash(matchedOrderHashes, market.matcher.roundOrderCount)
 }
 
 func (market *Market) saveAndSendSubmitInfo(ringState *types.RingSubmitInfo) error {
@@ -239,51 +263,13 @@ func (market *Market) reduceReceivedOfCandidateRing(list CandidateRingList, fill
 get orders from ordermanager
 */
 func (market *Market) getOrdersForMatching(delegateAddress common.Address) {
-	market.AtoBOrders = make(map[common.Hash]*types.OrderState)
-	market.BtoAOrders = make(map[common.Hash]*types.OrderState)
+	market.AtoBOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
+	market.BtoAOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
 
-	// log.Debugf("timing matcher,market tokenA:%s, tokenB:%s, atob hash length:%d, btoa hash length:%d", market.TokenA.Hex(), market.TokenB.Hex(), len(market.AtoBOrderHashesExcludeNextRound), len(market.BtoAOrderHashesExcludeNextRound))
-	currentRoundNumber := market.matcher.lastRoundNumber.Int64()
-	deleyedNumber := market.matcher.delayedNumber + currentRoundNumber
+	market.AtoBOrders.prepareOrders(delegateAddress, market, market.TokenA, market.TokenB)
+	market.BtoAOrders.prepareOrders(delegateAddress, market, market.TokenB, market.TokenA)
 
-	atoBOrders := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: market.AtoBOrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
-
-	if len(atoBOrders) < market.matcher.roundOrderCount {
-		orderCount := market.matcher.roundOrderCount - len(atoBOrders)
-		orders := datasource.MinerOrders(delegateAddress, market.TokenA, market.TokenB, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
-		atoBOrders = append(atoBOrders, orders...)
-	}
-
-	btoAOrders := datasource.MinerOrders(delegateAddress, market.TokenB, market.TokenA, market.matcher.roundOrderCount, market.matcher.reservedTime, int64(0), currentRoundNumber, &types.OrderDelayList{OrderHash: market.BtoAOrderHashesExcludeNextRound, DelayedCount: deleyedNumber})
-	if len(btoAOrders) < market.matcher.roundOrderCount {
-		orderCount := market.matcher.roundOrderCount - len(btoAOrders)
-		orders := datasource.MinerOrders(delegateAddress, market.TokenB, market.TokenA, orderCount, market.matcher.reservedTime, currentRoundNumber+1, currentRoundNumber+market.matcher.delayedNumber)
-		btoAOrders = append(btoAOrders, orders...)
-	}
-
-	//log.Debugf("#### %s,%s %d,%d %d",market.TokenA.Hex(),market.TokenB.Hex(), len(atoBOrders), len(btoAOrders),market.matcher.roundOrderCount)
-	market.AtoBOrderHashesExcludeNextRound = []common.Hash{}
-	market.BtoAOrderHashesExcludeNextRound = []common.Hash{}
-
-	for _, order := range atoBOrders {
-		market.reduceRemainedAmountBeforeMatch(order)
-		if !market.isOrderFinished(order) {
-			market.AtoBOrders[order.RawOrder.Hash] = order
-		} else {
-			market.AtoBOrderHashesExcludeNextRound = append(market.AtoBOrderHashesExcludeNextRound, order.RawOrder.Hash)
-		}
-		log.Debugf("order status in this new round:%s, orderhash:%s, DealtAmountS:%s, ", market.matcher.lastRoundNumber.String(), order.RawOrder.Hash.Hex(), order.DealtAmountS.String())
-	}
-
-	for _, order := range btoAOrders {
-		market.reduceRemainedAmountBeforeMatch(order)
-		if !market.isOrderFinished(order) {
-			market.BtoAOrders[order.RawOrder.Hash] = order
-		} else {
-			market.BtoAOrderHashesExcludeNextRound = append(market.BtoAOrderHashesExcludeNextRound, order.RawOrder.Hash)
-		}
-		log.Debugf("order status in this new round:%s, orderhash:%s, DealtAmountS:%s", market.matcher.lastRoundNumber.String(), order.RawOrder.Hash.Hex(), order.DealtAmountS.String())
-	}
+	////log.Debugf("#### %s,%s %d,%d %d",market.TokenA.Hex(),market.TokenB.Hex(), len(atoBOrders), len(btoAOrders),market.matcher.roundOrderCount)
 }
 
 //sub the matched amount in new round.
@@ -305,11 +291,11 @@ func (market *Market) reduceAmountAfterFilled(filledOrder *types.FilledOrder) *t
 
 	//only one of DealtAmountB and DealtAmountS is precise
 	if filledOrderState.RawOrder.TokenS == market.TokenA {
-		orderState = market.AtoBOrders[filledOrderState.RawOrder.Hash]
+		orderState = market.AtoBOrders.Orders[filledOrderState.RawOrder.Hash]
 		orderState.DealtAmountB.Add(orderState.DealtAmountB, ratToInt(filledOrder.FillAmountB))
 		orderState.DealtAmountS.Add(orderState.DealtAmountS, ratToInt(filledOrder.FillAmountS))
 	} else {
-		orderState = market.BtoAOrders[filledOrderState.RawOrder.Hash]
+		orderState = market.BtoAOrders.Orders[filledOrderState.RawOrder.Hash]
 		orderState.DealtAmountB.Add(orderState.DealtAmountB, ratToInt(filledOrder.FillAmountB))
 		orderState.DealtAmountS.Add(orderState.DealtAmountS, ratToInt(filledOrder.FillAmountS))
 	}
@@ -393,8 +379,6 @@ func NewMarket(protocolAddress *loopringaccessor.ProtocolAddress, tokenS, tokenB
 	m.matcher = matcher
 	m.TokenA = tokenS
 	m.TokenB = tokenB
-	m.AtoBOrderHashesExcludeNextRound = []common.Hash{}
-	m.BtoAOrderHashesExcludeNextRound = []common.Hash{}
 	return m
 }
 

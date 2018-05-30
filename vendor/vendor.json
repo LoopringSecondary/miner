@@ -201,10 +201,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "3guNpbigz23wDb2cRmexNB51Fd0=",
+			"checksumSHA1": "OJ8jpuAzz9eJYYgJYWqcxVNiLpM=",
 			"path": "github.com/Loopring/relay-lib/eventemitter",
-			"revision": "3c196fe2b44af07592d3929f04b5c867a3cc3ef4",
-			"revisionTime": "2018-05-24T09:59:38Z"
+			"revision": "f848dc523ba83881bfba42441ecb10231e1c4e0d",
+			"revisionTime": "2018-05-29T11:12:57Z"
 		},
 		{
 			"checksumSHA1": "3hHPlukaLJjwMSOIQf+8VQh8NF0=",

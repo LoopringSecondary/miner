@@ -23,9 +23,9 @@ import (
 	"github.com/Loopring/relay-lib/types"
 	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"qiniupkg.com/x/log.v7"
+	"errors"
 	"strings"
+	"github.com/Loopring/relay-lib/log"
 )
 
 type Mode int

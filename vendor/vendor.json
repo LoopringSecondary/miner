@@ -249,22 +249,22 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "8qaom2k8fwxIIhOxF/SVwoSN/sU=",
+			"checksumSHA1": "J30t7RKT4wEnC2gdO+Gwy3XPwzI=",
 			"path": "github.com/Loopring/relay-lib/types",
-			"revision": "a43406a85ddb5dff825f8d17b09791a7fc5248eb",
-			"revisionTime": "2018-05-28T10:16:07Z"
+			"revision": "47b9243612a1b639c9f913a10d85a5ae0699b5b8",
+			"revisionTime": "2018-05-31T08:43:32Z"
 		},
 		{
-			"checksumSHA1": "uTx8V1W6ZP0sYRlErDTDm+VzqFg=",
+			"checksumSHA1": "+bZUpFUdZTNjWqiwLXTjiPe51OU=",
 			"path": "github.com/Loopring/relay-lib/utils",
-			"revision": "3c196fe2b44af07592d3929f04b5c867a3cc3ef4",
-			"revisionTime": "2018-05-24T09:59:38Z"
+			"revision": "47b9243612a1b639c9f913a10d85a5ae0699b5b8",
+			"revisionTime": "2018-05-31T08:43:32Z"
 		},
 		{
-			"checksumSHA1": "XR1GHWlreOTlHmWFHQT0frthkGU=",
+			"checksumSHA1": "22ynVq8z5Ac+2HD0flbaDwddCe8=",
 			"path": "github.com/Loopring/relay-lib/zklock",
-			"revision": "3c196fe2b44af07592d3929f04b5c867a3cc3ef4",
-			"revisionTime": "2018-05-24T09:59:38Z"
+			"revision": "47b9243612a1b639c9f913a10d85a5ae0699b5b8",
+			"revisionTime": "2018-05-31T08:43:32Z"
 		},
 		{
 			"checksumSHA1": "kHh2EuzlSG80I7Hegzb8XnM5ybU=",

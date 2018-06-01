@@ -207,10 +207,11 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 		"protocol_used_gas": getBigIntString(submitResult.UsedGas),
 		"ringhash":          submitResult.RingHash.Hex(),
 		"protocol_tx_hash":  submitResult.TxHash.Hex(),
+		"err":               submitResult.Err,
 	}
-	if "" != submitResult.Err {
-		items["err"] = submitResult.Err
-	}
+	//if "" != submitResult.Err {
+	//	items["err"] = submitResult.Err
+	//}
 
 	var dbForUpdate *gorm.DB
 	if submitResult.RecordId > 0 {

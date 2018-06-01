@@ -36,12 +36,13 @@ const (
 	OrderHashPrefix          = "matcher_orderhash_"
 	OwnerPrefix              = "matcher_owner_"
 	RingHashPrefix           = "matcher_ringhash_"
-	RoundPrefix              = "matcher_round_"
 	FailedRingPrefix         = "failed_ring_"
 	FailedOrderPrefix        = "failed_order_"
 	RinghashToUniqueIdPrefix = "ringhash_uniqid_"
-	cacheTtl                 = 86400 * 2
+	//cacheTtl                 = 86400 * 2
 )
+
+var cacheTtl int64
 
 type OrderMatchedState struct {
 	//ringHash      common.Hash `json:"ringhash"`

@@ -19,13 +19,13 @@
 package timing_matcher
 
 import (
+	"errors"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
+	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
 	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/common"
-	"errors"
 	"strings"
-	"github.com/Loopring/relay-lib/log"
 )
 
 type Mode int
@@ -149,6 +149,7 @@ func (node *ClusterNode) assignMarkets() {
 
 func (node *ClusterNode) init() {
 	node.zkBalancer = &zklock.ZkBalancer{}
+	node.toRunMarkets = Markets{}
 	tasks := []zklock.Task{}
 
 	markets := node.matcher.localAllMarkets()

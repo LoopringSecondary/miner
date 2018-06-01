@@ -91,11 +91,11 @@ func (matcher *TimingMatcher) listenTimingRound() {
 	stopChan := make(chan bool)
 
 	matchFunc := func() {
+		matcher.node.assignMarkets()
 		if !matcher.isOrdersReady {
 			log.Debugf("matcher.isOrderReady:%v, relayProcessedBlockNumber:%s , the matching can't be started, ", matcher.isOrdersReady, matcher.relayProcessedBlockNumber.String())
 			return
 		}
-		matcher.node.assignMarkets()
 		//if ethaccessor.Synced() {
 		matcher.lastRoundNumber = big.NewInt(time.Now().UnixNano() / 1e6)
 		//matcher.rounds.appendNewRoundState(matcher.lastRoundNumber)

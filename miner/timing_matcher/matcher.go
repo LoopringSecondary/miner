@@ -41,7 +41,8 @@ import (
 
 type TimingMatcher struct {
 	//rounds          *RoundStates
-	markets           []*Market
+	runingMarkets     Markets
+	node              NodeInterface
 	submitter         *miner.RingSubmitter
 	evaluator         *miner.Evaluator
 	lastRoundNumber   *big.Int
@@ -71,7 +72,9 @@ func NewTimingMatcher(matcherOptions *config.TimingMatcher,
 	marketcapProvider marketcap.MarketCapProvider,
 	kafkaOptions kafka.KafkaOptions,
 ) *TimingMatcher {
+	cacheTtl = matcherOptions.MaxCacheTime
 	matcher := &TimingMatcher{}
+
 	matcher.blockEndConsumer = &kafka.ConsumerRegister{}
 	matcher.blockEndConsumer.Initialize(kafkaOptions.Brokers)
 
@@ -97,35 +100,21 @@ func NewTimingMatcher(matcherOptions *config.TimingMatcher,
 		matcher.maxFailedCount = 3
 	}
 
-	matcher.markets = []*Market{}
+	matcher.runingMarkets = []*Market{}
 	matcher.duration = big.NewInt(matcherOptions.Duration)
 	matcher.delayedNumber = matcherOptions.DelayedNumber
 
 	matcher.lastRoundNumber = big.NewInt(0)
 	matcher.stopFuncs = []func(){}
 
-	for _, pair := range marketUtilLib.AllTokenPairs {
-		inited := false
-		for _, market := range matcher.markets {
-			if (market.TokenB == pair.TokenB && market.TokenA == pair.TokenS) ||
-				(market.TokenA == pair.TokenB && market.TokenB == pair.TokenS) {
-				inited = true
-				break
-			}
-		}
-		if !inited {
-			for _, protocolAddress := range loopringaccessor.ProtocolAddresses() {
-				m := &Market{}
-				m.protocolImpl = protocolAddress
-				m.matcher = matcher
-				m.TokenA = pair.TokenS
-				m.TokenB = pair.TokenB
-				m.AtoBOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
-				m.BtoAOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
-				matcher.markets = append(matcher.markets, m)
-			}
-		}
+	if "CLUSTER" == strings.ToUpper(matcherOptions.Mode) {
+		matcher.node = &ClusterNode{matcher: matcher}
+	} else {
+		matcher.node = &SingleNode{matcher: matcher}
 	}
+	matcher.node.init()
+	matcher.stopFuncs = append(matcher.stopFuncs, matcher.node.stop)
+
 	return matcher
 }
 
@@ -154,18 +143,9 @@ func (matcher *TimingMatcher) cleanMissedCache() {
 func (matcher *TimingMatcher) Start() {
 	matcher.listenSubmitEvent()
 	matcher.listenOrderReady()
-	matcher.listenTimingRound()
 	matcher.cleanMissedCache()
-
-	//syncWatcher := &eventemitter.Watcher{Concurrent: false, Handle: func(eventData eventemitter.EventData) error {
-	//	log.Debugf("TimingMatcher Start......")
-	//	matcher.listenTimingRound()
-	//	return nil
-	//}}
-	//eventemitter.On(eventemitter.SyncChainComplete, syncWatcher)
-	//matcher.stopFuncs = append(matcher.stopFuncs, func() {
-	//	eventemitter.Un(eventemitter.SyncChainComplete, syncWatcher)
-	//})
+	matcher.node.start()
+	matcher.listenTimingRound()
 }
 
 func (matcher *TimingMatcher) Stop() {
@@ -191,4 +171,23 @@ func (matcher *TimingMatcher) GetAccountAvailableAmount(address, tokenAddress, s
 
 		return availableAmount, nil
 	}
+}
+
+func (matcher *TimingMatcher) localAllMarkets() Markets {
+	markets := Markets{}
+	for _, tokenPair := range marketUtilLib.AllTokenPairs {
+		if !markets.contain(tokenPair.TokenB, tokenPair.TokenS) {
+			for _, protocolImpl := range loopringaccessor.ProtocolAddresses() {
+				market := &Market{}
+				market.protocolImpl = protocolImpl
+				market.TokenA = tokenPair.TokenS
+				market.TokenB = tokenPair.TokenB
+				market.matcher = matcher
+				market.AtoBOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
+				market.BtoAOrders = &OrdersState{Orders: make(map[common.Hash]*types.OrderState), OrderHashesExcludeNextRound: []common.Hash{}}
+				markets = append(markets, market)
+			}
+		}
+	}
+	return markets
 }

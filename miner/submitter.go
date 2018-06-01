@@ -222,7 +222,7 @@ func (submitter *RingSubmitter) listenBlockNew() {
 
 func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 	if evt, ok := input.(*types.RingSubmitInfoEvent); ok {
-		txhash, status, tx, err := submitter.submitRing(evt.Miner, evt.ProtocolAddress, evt.Ringhash, evt.ProtocolGas, evt.ProtocolGasPrice, common.FromHex(evt.ProtocolData))
+		txhash, status, tx, err := submitter.submitRing(evt)
 		if nil != err {
 			log.Errorf("err:%s", err.Error())
 		}
@@ -237,7 +237,7 @@ func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 	return nil
 }
 
-func (submitter *RingSubmitter) submitRing(miner, protocolAddress common.Address, ringhash common.Hash, gas, gasPrice *big.Int, callData []byte) (common.Hash, types.TxStatus, *ethTypes.Transaction, error) {
+func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (common.Hash, types.TxStatus, *ethTypes.Transaction, error) {
 	status := types.TX_STATUS_PENDING
 	//ordersStr, _ := json.Marshal(ringSubmitInfo.RawRing.Orders)
 	//log.Debugf("submitring hash:%s, orders:%s", ringSubmitInfo.Ringhash.Hex(), string(ordersStr))
@@ -245,18 +245,24 @@ func (submitter *RingSubmitter) submitRing(miner, protocolAddress common.Address
 	txHash := types.NilHash
 	var err error
 
+	callData := common.FromHex(evt.ProtocolData)
 	var tx *ethTypes.Transaction
 	if nil == err {
-		txHashStr := "0x"
-		txHashStr, tx, err = accessor.SignAndSendTransaction(miner, protocolAddress, gas, gasPrice, nil, callData, false)
-		if nil != err {
-			log.Errorf("submitring hash:%s, err:%s", ringhash, err.Error())
-			status = types.TX_STATUS_FAILED
+		lastTime := evt.ValidSinceTime
+		needPreExe := false
+		if submitter.currentBlockTime > 0 && lastTime <= submitter.currentBlockTime {
+			needPreExe = true
 		}
 
+		txHashStr := "0x"
+		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe)
+		if nil != err {
+			log.Errorf("submitring hash:%s, err:%s", evt.Ringhash.Hex(), err.Error())
+			status = types.TX_STATUS_FAILED
+		}
 		txHash = common.HexToHash(txHashStr)
 	} else {
-		log.Errorf("submitring hash:%s, protocol:%s, err:%s", ringhash.Hex(), protocolAddress.Hex(), err.Error())
+		log.Errorf("submitring hash:%s, protocol:%s, err:%s", evt.Ringhash.Hex(), evt.ProtocolAddress.Hex(), err.Error())
 		status = types.TX_STATUS_FAILED
 	}
 
@@ -372,10 +378,6 @@ func (submitter *RingSubmitter) submitResult(recordId int, ringhash, uniqeId, tx
 func (submitter *RingSubmitter) GenerateRingSubmitInfo(ringState *types.Ring) (*types.RingSubmitInfo, error) {
 	//todo:change to advice protocolAddress
 	protocolAddress := ringState.Orders[0].OrderState.RawOrder.Protocol
-	var (
-	//signer *types.NameRegistryInfo
-	//err error
-	)
 
 	ringSubmitInfo := &types.RingSubmitInfo{RawRing: ringState, ProtocolGasPrice: ringState.GasPrice, ProtocolGas: ringState.Gas}
 	if types.IsZeroHash(ringState.Hash) {
@@ -402,16 +404,7 @@ func (submitter *RingSubmitter) GenerateRingSubmitInfo(ringState *types.Ring) (*
 	//	return nil, err
 	//}
 	//预先判断是否会提交成功
-	lastTime := ringSubmitInfo.RawRing.ValidSinceTime()
-	if submitter.currentBlockTime > 0 && lastTime <= submitter.currentBlockTime {
-		var err error
-		_, _, err = accessor.EstimateGas(ringSubmitInfo.ProtocolData, ringSubmitInfo.ProtocolAddress, "latest")
-		//ringSubmitInfo.ProtocolGas, ringSubmitInfo.ProtocolGasPrice, err = ethaccessor.EstimateGas(ringSubmitInfo.ProtocolData, protocolAddress, "latest")
-		if nil != err {
-			log.Errorf("can't generate ring ,err:%s", err.Error())
-			return nil, err
-		}
-	}
+
 	//if nil != err {
 	//	return nil, err
 	//}

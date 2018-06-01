@@ -24,58 +24,12 @@ import (
 	"github.com/Loopring/relay-lib/kafka"
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/types"
+	"github.com/Loopring/relay-lib/utils"
 	"math/big"
 	"sync"
 	"time"
 )
 
-//func (matcher *TimingMatcher) listenNewBlock() {
-//	newBlockChan := make(chan *types.BlockEvent)
-//
-//	go func() {
-//		for {
-//			select {
-//			case blockEvent := <-newBlockChan:
-//				if nil != blockEvent {
-//					nextBlockNumber := new(big.Int).Add(matcher.duration, matcher.lastRoundNumber)
-//					if nextBlockNumber.Cmp(blockEvent.BlockNumber) <= 0 {
-//						// debug use only
-//						// log.Debugf("miner starts a new match round")
-//						matcher.lastRoundNumber = blockEvent.BlockNumber
-//						matcher.rounds.appendNewRoundState(matcher.lastRoundNumber)
-//						var wg sync.WaitGroup
-//						for _, market := range matcher.markets {
-//							wg.Add(1)
-//							go func(m *Market) {
-//								defer func() {
-//									wg.Add(-1)
-//								}()
-//								m.match()
-//							}(market)
-//						}
-//						wg.Wait()
-//					}
-//				}
-//			}
-//		}
-//	}()
-//
-//	watcher := &eventemitter.Watcher{
-//		Concurrent: false,
-//		Handle: func(eventData eventemitter.EventData) error {
-//			blockEvent := eventData.(*types.BlockEvent)
-//			newBlockChan <- blockEvent
-//			return nil
-//		},
-//	}
-//	eventemitter.On(eventemitter.Block_New, watcher)
-//	matcher.stopFuncs = append(matcher.stopFuncs, func() {
-//		close(newBlockChan)
-//		eventemitter.Un(eventemitter.Block_New, watcher)
-//	})
-//
-//}
-//
 func (matcher *TimingMatcher) listenOrderReady() {
 	latestBlockNumber := new(big.Int)
 
@@ -130,7 +84,7 @@ func (matcher *TimingMatcher) listenOrderReady() {
 }
 
 func getKafkaGroup() string {
-	return "miner_"
+	return "miner_" + utils.GetLocalIp()
 }
 
 func (matcher *TimingMatcher) listenTimingRound() {
@@ -141,11 +95,12 @@ func (matcher *TimingMatcher) listenTimingRound() {
 			log.Debugf("matcher.isOrderReady:%v, relayProcessedBlockNumber:%s , the matching can't be started, ", matcher.isOrdersReady, matcher.relayProcessedBlockNumber.String())
 			return
 		}
+		matcher.node.assignMarkets()
 		//if ethaccessor.Synced() {
 		matcher.lastRoundNumber = big.NewInt(time.Now().UnixNano() / 1e6)
 		//matcher.rounds.appendNewRoundState(matcher.lastRoundNumber)
 		var wg sync.WaitGroup
-		for _, market := range matcher.markets {
+		for _, market := range matcher.runingMarkets {
 			wg.Add(1)
 			go func(m *Market) {
 				defer func() {

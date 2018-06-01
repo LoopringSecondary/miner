@@ -211,6 +211,7 @@ func (market *Market) saveAndSendSubmitInfo(ringState *types.RingSubmitInfo) err
 	evt.ProtocolGas = ringState.ProtocolGas
 	evt.ProtocolGasPrice = ringState.ProtocolGasPrice
 	evt.ProtocolData = common.ToHex(ringState.ProtocolData)
+	evt.ValidSinceTime = ringState.RawRing.ValidSinceTime()
 
 	if _, _, err := market.matcher.messageProducer.SendMessage(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+strings.ToLower(evt.Miner.Hex()), evt, evt.Ringhash.Hex()); nil != err {
 		log.Errorf("err:%s", err.Error())

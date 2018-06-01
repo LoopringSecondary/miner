@@ -101,12 +101,13 @@ type KeyStoreOptions struct {
 }
 
 type TimingMatcher struct {
+	Mode                         string
 	RoundOrdersCount             int
 	Duration                     int64
 	ReservedSubmitTime           int64
 	MaxSumitFailedCount          int64
 	DelayedNumber                int64
-	MaxCacheRoundsLength         int
+	MaxCacheTime         int64
 	LagForCleanSubmitCacheBlocks int64
 }
 

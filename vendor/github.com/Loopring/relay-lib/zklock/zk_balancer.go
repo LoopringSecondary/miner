@@ -178,6 +178,15 @@ func (zb *ZkBalancer) startMaster() {
 					ReleaseLock(zb.masterLockName())
 					continue
 				}
+				//release orphan tasks when new master start, to handle follow cases:
+				// 1: original master exit ungraceful, which cause worker node change event not handled
+				// 2: worker release task not quickly enough
+				// the best implementation is store all tasks to zookeeper, will may be too complicate
+				if zb.releaseOrphanTasks(workers) {
+					log.Warnf("get orphan tasks when start master, wait 5 seconds to ensure these tasks are released successfully................\n")
+					time.Sleep(time.Second * time.Duration(5))
+					zb.balanceTasks(workers)
+				}
 				log.Info("master watch worker nodes success !!!\n")
 				go func() {
 					for {
@@ -250,6 +259,14 @@ func (zb *ZkBalancer) registerWorker() error {
 			log.Errorf("registerWorker failed when create zk node with error : %s\n", err.Error())
 		}
 	}
+}
+
+func (zb *ZkBalancer) unRegisterWorker() error {
+	if err := ZkClient.Delete(zb.workerEphemeralPath(), -1); err != nil {
+		log.Errorf("failed unRegister worker with error : %s\n", err.Error())
+		return err
+	}
+	return nil
 }
 
 func (zb *ZkBalancer) loadTasks(workers []string) error {
@@ -385,14 +402,6 @@ func (zb *ZkBalancer) scheduleShowTasks() {
 	}()
 }
 
-func (zb *ZkBalancer) unRegisterWorker() error {
-	if err := ZkClient.Delete(zb.workerEphemeralPath(), -1); err != nil {
-		log.Errorf("failed unRegister worker with error : %s\n", err.Error())
-		return err
-	}
-	return nil
-}
-
 func (zb *ZkBalancer) innerOnReleased(releasedTasks map[string]Task) {
 	log.Infof("innerOnReleased to release %+v\n", releasedTasks)
 	zb.mutex.Lock()
@@ -428,18 +437,21 @@ func (zb *ZkBalancer) innerOnReleased(releasedTasks map[string]Task) {
 	}
 }
 
-func (zb *ZkBalancer) releaseOrphanTasks(workers []string) {
+func (zb *ZkBalancer) releaseOrphanTasks(workers []string) bool {
 	validWorkers := make(map[string]string, len(workers))
 	for _, v := range workers {
 		validWorkers[v] = "-"
 	}
 	zb.mutex.Lock()
 	defer zb.mutex.Unlock()
+	hasOrphan := false
 	for _, t := range zb.tasks {
 		if _, ok := validWorkers[t.Owner]; !ok {
 			t.Status = Init
+			hasOrphan = true
 		}
 	}
+	return hasOrphan
 }
 
 func (zb *ZkBalancer) balanceTasks(workers []string) {
@@ -528,29 +540,6 @@ func (zb *ZkBalancer) workerEphemeralPath() string {
 	return fmt.Sprintf("%s/%s", zb.workerBasePath, zb.workerPath)
 }
 
-func decodeData(data []byte) ([]Task, error) {
-	releasedTasks := []Task{}
-	if len(data) == 0 {
-		return releasedTasks, nil
-	}
-	if err := json.Unmarshal(data, &releasedTasks); err != nil {
-		return nil, err
-	} else {
-		return releasedTasks, nil
-	}
-}
-
-func encodeData(tasks []*Task) ([]byte, error) {
-	if len(tasks) == 0 {
-		return []byte{}, nil
-	}
-	res := make([]Task, 0, len(tasks))
-	for _, v := range tasks {
-		res = append(res, *v)
-	}
-	return json.Marshal(res)
-}
-
 func (zb *ZkBalancer) showTasks() {
 	log.Infof("Begin showTasks by worker >>>>>>>>>>>>>>\n")
 	tasks4worker := make(map[string][]*Task)
@@ -577,4 +566,27 @@ func (zb *ZkBalancer) showTasks() {
 		}
 	}
 	log.Infof("End showTasks by worker >>>>>>>>>>>>>>\n")
+}
+
+func decodeData(data []byte) ([]Task, error) {
+	releasedTasks := []Task{}
+	if len(data) == 0 {
+		return releasedTasks, nil
+	}
+	if err := json.Unmarshal(data, &releasedTasks); err != nil {
+		return nil, err
+	} else {
+		return releasedTasks, nil
+	}
+}
+
+func encodeData(tasks []*Task) ([]byte, error) {
+     if len(tasks) == 0 {
+        return []byte{}, nil
+     }
+     res := make([]Task, 0, len(tasks))
+     for _, v := range tasks {
+        res = append(res, *v)
+     }
+     return json.Marshal(res)
 }

@@ -52,10 +52,11 @@ func (market *Market) generateTask() (zklock.Task, error) {
 		tokenBHex := strings.ToLower(market.TokenB.Hex())
 		if strings.Compare(tokenAHex, tokenBHex) >= 0 {
 			task.Payload = protocolAddrHex + "_" + tokenAHex + "_" + tokenBHex
+			task.Path = tokenA + "_" + tokenB
 		} else {
 			task.Payload = protocolAddrHex + "_" + tokenBHex + "_" + tokenAHex
+			task.Path = tokenB + "_" + tokenA
 		}
-		task.Path = tokenA + "_" + tokenB
 		return task, nil
 	}
 }

@@ -160,6 +160,7 @@ func (node *ClusterNode) assignMarkets() {
 
 func (node *ClusterNode) init() error {
 	node.zkBalancer = &zklock.ZkBalancer{}
+	node.toRunMarkets = Markets{}
 	tasks := []zklock.Task{}
 
 	markets := node.matcher.localAllMarkets()

@@ -19,45 +19,49 @@
 package timing_matcher
 
 import (
+	"errors"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
+	"github.com/Loopring/relay-lib/log"
+	"github.com/Loopring/relay-lib/marketutil"
 	"github.com/Loopring/relay-lib/types"
 	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/common"
-	"errors"
 	"strings"
-	"github.com/Loopring/relay-lib/log"
 )
 
-type Mode int
-
 const (
-	Cluster Mode = 1
-	Single  Mode = 2
+	Task_Balancer_Name = "task_balancer_timingmatcher"
 )
 
 type NodeInterface interface {
 	assignMarkets()
-	init()
+	init() error
 	start()
 	stop()
 }
 
-func (market *Market) generateTask() zklock.Task {
-	task := zklock.Task{}
+func (market *Market) generateTask() (zklock.Task, error) {
+	task := zklock.Task{Weight: 10, Status: zklock.Init, Owner: "", Timestamp: 0}
 	protocolAddrHex := strings.ToLower(market.protocolImpl.ContractAddress.Hex())
-	tokenAHex := strings.ToLower(market.TokenA.Hex())
-	tokenBHex := strings.ToLower(market.TokenB.Hex())
-	if strings.Compare(tokenAHex, tokenBHex) >= 0 {
-		task.Path = protocolAddrHex + "_" + tokenAHex + "_" + tokenBHex
+	if tokenA, err := marketutil.GetSymbolWithAddress(market.TokenA); nil != err {
+		return task, err
+	} else if tokenB, err1 := marketutil.GetSymbolWithAddress(market.TokenB); nil != err1 {
+		return task, err1
 	} else {
-		task.Path = protocolAddrHex + "_" + tokenBHex + "_" + tokenAHex
+		tokenAHex := strings.ToLower(market.TokenA.Hex())
+		tokenBHex := strings.ToLower(market.TokenB.Hex())
+		if strings.Compare(tokenAHex, tokenBHex) >= 0 {
+			task.Payload = protocolAddrHex + "_" + tokenAHex + "_" + tokenBHex
+		} else {
+			task.Payload = protocolAddrHex + "_" + tokenBHex + "_" + tokenAHex
+		}
+		task.Path = tokenA + "_" + tokenB
+		return task, nil
 	}
-
-	return task
 }
 
 func (market *Market) fromTask(task zklock.Task, matcher *TimingMatcher) error {
-	tokens := strings.Split(task.Path, "_")
+	tokens := strings.Split(task.Payload, "_")
 	if len(tokens) > 2 {
 		protocolAddr := common.HexToAddress(tokens[0])
 		if protocolImpl, exists := loopringaccessor.ProtocolAddresses()[protocolAddr]; exists {
@@ -110,8 +114,9 @@ type SingleNode struct {
 	matcher *TimingMatcher
 }
 
-func (node *SingleNode) init() {
+func (node *SingleNode) init() error {
 	node.matcher.runingMarkets = Markets{}
+	return nil
 }
 
 func (node *SingleNode) start() {
@@ -134,12 +139,18 @@ type ClusterNode struct {
 
 func (node *ClusterNode) assignMarkets() {
 	//release market
+	releasedTasks := []zklock.Task{}
 	for _, market := range node.matcher.runingMarkets {
 		if !node.toRunMarkets.contain(market.TokenA, market.TokenB) {
-			if err := node.zkBalancer.Released(market.generateTask()); nil != err {
+			task, err := market.generateTask()
+			if nil != err {
 				log.Errorf("err:%s", err.Error())
 			}
+			releasedTasks = append(releasedTasks, task)
 		}
+	}
+	if err := node.zkBalancer.Released(releasedTasks); nil != err {
+		log.Errorf("err:%s", err.Error())
 	}
 	node.matcher.runingMarkets = Markets{}
 	for _, market := range node.toRunMarkets {
@@ -147,16 +158,23 @@ func (node *ClusterNode) assignMarkets() {
 	}
 }
 
-func (node *ClusterNode) init() {
+func (node *ClusterNode) init() error {
 	node.zkBalancer = &zklock.ZkBalancer{}
 	tasks := []zklock.Task{}
 
 	markets := node.matcher.localAllMarkets()
 
 	for _, market := range markets {
-		tasks = append(tasks, market.generateTask())
+		task, err := market.generateTask()
+		if nil != err {
+			log.Errorf("err:%s", err.Error())
+		}
+		tasks = append(tasks, task)
 	}
-	node.zkBalancer.Init(tasks)
+	if err := node.zkBalancer.Init(Task_Balancer_Name, tasks); nil != err {
+		return err
+	}
+	return nil
 }
 
 func (node *ClusterNode) start() {

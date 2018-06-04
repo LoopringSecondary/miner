@@ -79,6 +79,6 @@ func ReleaseLock(lockName string) error {
 	}
 }
 
-func IsInit() bool {
+func IsLockInitialed() bool {
 	return nil != zl
 }

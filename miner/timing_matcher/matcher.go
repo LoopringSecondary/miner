@@ -112,7 +112,10 @@ func NewTimingMatcher(matcherOptions *config.TimingMatcher,
 	} else {
 		matcher.node = &SingleNode{matcher: matcher}
 	}
-	matcher.node.init()
+	if err := matcher.node.init(); nil != err {
+		log.Fatalf("err:%s", err.Error())
+		return nil
+	}
 	matcher.stopFuncs = append(matcher.stopFuncs, matcher.node.stop)
 
 	return matcher

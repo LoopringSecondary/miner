@@ -37,8 +37,8 @@ type ZkLockConfig struct {
 }
 
 type ZkLock struct {
-	lockMap  map[string]*zk.Lock
-	mutex    sync.Mutex
+	lockMap map[string]*zk.Lock
+	mutex   sync.Mutex
 }
 
 var ZkClient *zk.Conn

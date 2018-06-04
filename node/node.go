@@ -59,7 +59,6 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 	n.registerAccessor()
 	ks := keystore.NewKeyStore(n.globalConfig.Keystore.Keydir, keystore.StandardScryptN, keystore.StandardScryptP)
 	n.registerCrypto(ks)
-	n.registerMiner()
 	if _, err := zklock.Initialize(globalConfig.ZkLock); nil != err {
 		log.Fatalf("err:%s", err.Error())
 	}
@@ -67,6 +66,7 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 		log.Errorf("err:%s", err.Error())
 	}
 	datasource.Initialize(globalConfig.DataSource, globalConfig.Mysql, n.marketCapProvider)
+	n.registerMiner()
 	return n
 }
 

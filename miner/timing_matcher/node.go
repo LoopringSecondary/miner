@@ -145,15 +145,20 @@ func (node *ClusterNode) assignMarkets() {
 			task, err := market.generateTask()
 			if nil != err {
 				log.Errorf("err:%s", err.Error())
+				continue
 			}
+			log.Debugf("releasedtask path:%s, payload:%s", task.Path, task.Payload)
 			releasedTasks = append(releasedTasks, task)
 		}
 	}
-	if err := node.zkBalancer.Released(releasedTasks); nil != err {
-		log.Errorf("err:%s", err.Error())
+	if len(releasedTasks) > 0 {
+		if err := node.zkBalancer.Released(releasedTasks); nil != err {
+			log.Errorf("err:%s", err.Error())
+		}
 	}
 	node.matcher.runingMarkets = Markets{}
 	for _, market := range node.toRunMarkets {
+		log.Debugf("runningtask tokenA:%s, tokenB:%s", market.TokenA.Hex(), market.TokenB.Hex())
 		node.matcher.runingMarkets = append(node.matcher.runingMarkets, market)
 	}
 }
@@ -191,6 +196,7 @@ func (node *ClusterNode) stop() {
 func (node *ClusterNode) handleOnAssign(tasks []zklock.Task) error {
 	node.toRunMarkets = Markets{}
 	for _, task := range tasks {
+		log.Debugf("handleOnAssign, assignedtask path:%s, payload:%s", task.Path, task.Payload)
 		market := &Market{}
 		if err := market.fromTask(task, node.matcher); nil != err {
 			log.Errorf("err:%s", err.Error())

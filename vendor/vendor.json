@@ -261,10 +261,10 @@
 			"revisionTime": "2018-06-04T02:58:34Z"
 		},
 		{
-			"checksumSHA1": "Nt+xLjWysO9/CSuJXMv+2uUPwuQ=",
+			"checksumSHA1": "4cCrfjLMezUdT9eRXY6AhpyLBdE=",
 			"path": "github.com/Loopring/relay-lib/zklock",
-			"revision": "40028a0cc6fd5b640593563a29847e0acfb399ca",
-			"revisionTime": "2018-06-04T10:06:03Z"
+			"revision": "97c967c2b573d2ab454a22f34724c441dee771c6",
+			"revisionTime": "2018-06-05T03:53:04Z"
 		},
 		{
 			"checksumSHA1": "kHh2EuzlSG80I7Hegzb8XnM5ybU=",

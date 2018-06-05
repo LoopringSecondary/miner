@@ -183,6 +183,8 @@ func (zb *ZkBalancer) startMaster() {
 					continue
 				}
 				log.Info("master watch worker nodes success !!!\n")
+				zb.releaseOrphanTasks(workers)
+				zb.balanceTasks(workers)
 				go func() {
 					for {
 						select {
@@ -392,7 +394,7 @@ func (zb *ZkBalancer) scheduleCheckTasks() {
 		for {
 			time.Sleep(time.Second * time.Duration(60))
 			log.Info("scheduleCheckTasks every minute >>>>>>>>>> \n")
-			zb.checkAndAssignReleaseTimeoutTasks()
+			zb.handleReleaseTimeoutAndInitTasks()
 			zb.showTasks()
 		}
 	}()
@@ -430,24 +432,54 @@ func (zb *ZkBalancer) innerOnReleased(releasedTasks map[string]Task) {
 	}
 }
 
-func (zb *ZkBalancer) checkAndAssignReleaseTimeoutTasks() {
+func (zb *ZkBalancer) handleReleaseTimeoutAndInitTasks() {
 	needAssignTasks := make([]Task, 0, len(zb.tasks)/2)
+	hasInit := false
+	hasReleasing := false
 	zb.mutex.Lock()
 	for _, t := range zb.tasks {
-		if t.Status == Releasing {
+		switch t.Status {
+		case Releasing:
 			if time.Now().Unix()-t.Timestamp >= releasingTimeout {
 				t.Timestamp = time.Now().Unix()
 				t.Status = Assigned
 				needAssignTasks = append(needAssignTasks, *t)
+			} else {
+				hasReleasing = true
 			}
-		} else if t.Status == Deleting {
+			break
+		case Deleting:
 			if time.Now().Unix()-t.Timestamp >= releasingTimeout {
 				delete(zb.tasks, t.Path)
 			}
+			break
+		case Init:
+			hasInit = true
+			t.Timestamp = time.Now().Unix()
+			break
 		}
 	}
 	zb.mutex.Unlock()
+	if hasInit {
+		if !hasReleasing {
+			log.Infof("handleReleaseTimeoutAndInitTasks found Init tasks, tryGlobalBalance")
+			if workers, _, err := ZkClient.Children(zb.workerBasePath); err == nil {
+				if zb.balanceTasks(workers) {
+					log.Info("handleReleaseTimeoutAndInitTasks global balance success\n")
+					return
+				}
+			} else {
+				log.Errorf("handleReleaseTimeoutAndInitTasks get workers failed with error : %s\n", err.Error())
+			}
+		} else {
+			zb.mutex.Lock()
+			zb.postponedGlobalBalance = true
+			zb.mutex.Unlock()
+		}
+	}
+
 	if len(needAssignTasks) > 0 {
+		log.Infof("handleReleaseTimeoutAndInitTasks found should assigned tasks, try balanceTasksOnReleased")
 		zb.balanceTasksOnReleased(needAssignTasks)
 	}
 }
@@ -463,6 +495,7 @@ func (zb *ZkBalancer) releaseOrphanTasks(workers []string) bool {
 	for _, t := range zb.tasks {
 		if _, ok := validWorkers[t.Owner]; !ok {
 			t.Status = Init
+			t.Owner = ""
 			hasOrphan = true
 		}
 	}
@@ -472,6 +505,9 @@ func (zb *ZkBalancer) releaseOrphanTasks(workers []string) bool {
 //return false if Releasing task exists and postpone this action
 func (zb *ZkBalancer) balanceTasks(workers []string) bool {
 	log.Infof("balanceTasks workers %+v\n", workers)
+	if len(workers) == 0 {
+		return false
+	}
 	zb.mutex.Lock()
 	defer zb.mutex.Unlock()
 	sortedTask := make([]*Task, 0, len(zb.tasks))

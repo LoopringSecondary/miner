@@ -27,6 +27,7 @@ import (
 	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/common"
 	"strings"
+	"sync"
 )
 
 const (
@@ -52,10 +53,11 @@ func (market *Market) generateTask() (zklock.Task, error) {
 		tokenBHex := strings.ToLower(market.TokenB.Hex())
 		if strings.Compare(tokenAHex, tokenBHex) >= 0 {
 			task.Payload = protocolAddrHex + "_" + tokenAHex + "_" + tokenBHex
+			task.Path = tokenA + "_" + tokenB
 		} else {
 			task.Payload = protocolAddrHex + "_" + tokenBHex + "_" + tokenAHex
+			task.Path = tokenB + "_" + tokenA
 		}
-		task.Path = tokenA + "_" + tokenB
 		return task, nil
 	}
 }
@@ -133,34 +135,48 @@ func (node *SingleNode) assignMarkets() {
 
 type ClusterNode struct {
 	toRunMarkets Markets
+	assignedMarkets Markets
 	zkBalancer   *zklock.ZkBalancer
 	matcher      *TimingMatcher
+	mtx sync.Mutex
 }
 
 func (node *ClusterNode) assignMarkets() {
+	node.mtx.Lock()
+	defer node.mtx.Unlock()
+
 	//release market
 	releasedTasks := []zklock.Task{}
-	for _, market := range node.matcher.runingMarkets {
+	for _, market := range node.assignedMarkets {
 		if !node.toRunMarkets.contain(market.TokenA, market.TokenB) {
 			task, err := market.generateTask()
 			if nil != err {
 				log.Errorf("err:%s", err.Error())
+				continue
 			}
+			log.Debugf("releasedtask path:%s, payload:%s", task.Path, task.Payload)
 			releasedTasks = append(releasedTasks, task)
 		}
 	}
-	if err := node.zkBalancer.Released(releasedTasks); nil != err {
-		log.Errorf("err:%s", err.Error())
+	if len(releasedTasks) > 0 {
+		if err := node.zkBalancer.Released(releasedTasks); nil != err {
+			log.Errorf("err:%s", err.Error())
+		}
 	}
 	node.matcher.runingMarkets = Markets{}
+	node.assignedMarkets = Markets{}
 	for _, market := range node.toRunMarkets {
+		log.Debugf("runningtask tokenA:%s, tokenB:%s", market.TokenA.Hex(), market.TokenB.Hex())
 		node.matcher.runingMarkets = append(node.matcher.runingMarkets, market)
+		node.assignedMarkets = append(node.assignedMarkets, market)
 	}
 }
 
 func (node *ClusterNode) init() error {
 	node.zkBalancer = &zklock.ZkBalancer{}
+	node.mtx = sync.Mutex{}
 	node.toRunMarkets = Markets{}
+	node.assignedMarkets = Markets{}
 	tasks := []zklock.Task{}
 
 	markets := node.matcher.localAllMarkets()
@@ -184,18 +200,28 @@ func (node *ClusterNode) start() {
 }
 
 func (node *ClusterNode) stop() {
+	node.mtx.Lock()
+	defer node.mtx.Unlock()
+
 	node.toRunMarkets = Markets{}
 	node.zkBalancer.Stop()
 }
 
 func (node *ClusterNode) handleOnAssign(tasks []zklock.Task) error {
+	node.mtx.Lock()
+	defer node.mtx.Unlock()
+
 	node.toRunMarkets = Markets{}
 	for _, task := range tasks {
+		log.Debugf("handleOnAssign, assignedtask path:%s, payload:%s", task.Path, task.Payload)
 		market := &Market{}
 		if err := market.fromTask(task, node.matcher); nil != err {
 			log.Errorf("err:%s", err.Error())
 			return err
 		} else {
+			if !node.assignedMarkets.contain(market.TokenA, market.TokenB) {
+				node.assignedMarkets = append(node.assignedMarkets, market)
+			}
 			node.toRunMarkets = append(node.toRunMarkets, market)
 		}
 	}

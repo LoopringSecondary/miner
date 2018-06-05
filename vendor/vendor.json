@@ -171,10 +171,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "X0o14PAQuoPbrqGudbuZP2sSICY=",
+			"checksumSHA1": "qQtIKYVtJpgBnr4/77pJVZODWVE=",
 			"path": "github.com/Loopring/relay-lib/eth/accessor",
-			"revision": "2670f078216e6b11299bfd578a6cb90be1bacfec",
-			"revisionTime": "2018-05-30T02:34:46Z"
+			"revision": "4f4beb9606f1b585c0a61b30ab773f8359e7bb1b",
+			"revisionTime": "2018-06-05T09:50:35Z"
 		},
 		{
 			"checksumSHA1": "nK28KOhmrzJqE5Fi28JcRx9okHs=",
@@ -249,10 +249,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "D1H9d1hQ/UPNLoY4EfaSv3XR1hs=",
+			"checksumSHA1": "BBZ7Lq1YNP5sASzyy73THZm3/uE=",
 			"path": "github.com/Loopring/relay-lib/types",
-			"revision": "13e116428861233c22624e25aaa3cc9d39e1bf64",
-			"revisionTime": "2018-06-04T06:11:11Z"
+			"revision": "e96bed6b5b504099c1eb5375d774d2021fcf3a37",
+			"revisionTime": "2018-06-04T08:55:23Z"
 		},
 		{
 			"checksumSHA1": "kP14pwbOsJlPAwJAh4TYBCeYrlo=",
@@ -261,10 +261,10 @@
 			"revisionTime": "2018-06-04T02:58:34Z"
 		},
 		{
-			"checksumSHA1": "5aacVKZO3txrpVi1v8/4UzqC708=",
+			"checksumSHA1": "Ss6vzn+If8u/MHsdaLm+HWlMpxw=",
 			"path": "github.com/Loopring/relay-lib/zklock",
-			"revision": "5c5f40431468e82a105d9ba5bb560c965b288a3a",
-			"revisionTime": "2018-06-04T07:18:12Z"
+			"revision": "bd4d2f6ac3b4e121bcd7859ca58e36f246e270d0",
+			"revisionTime": "2018-06-05T06:20:38Z"
 		},
 		{
 			"checksumSHA1": "kHh2EuzlSG80I7Hegzb8XnM5ybU=",

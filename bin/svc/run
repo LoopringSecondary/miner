@@ -2,4 +2,5 @@
 echo "starting miner"
 export PATH=${PATH}:/usr/local/bin:/usr/bin:/usr/sbin
 export WORK_DIR=/opt/loopring/miner
+export AWS_SHARED_CREDENTIALS_FILE=/home/ubuntu/.aws/credentials
 exec setuidgid ubuntu $WORK_DIR/bin/miner --mode=miner --config $WORK_DIR/config/miner.toml 2>&1

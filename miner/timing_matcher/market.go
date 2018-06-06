@@ -347,7 +347,7 @@ func (market *Market) generateFilledOrder(order *types.OrderState) (*types.Fille
 		return nil, fmt.Errorf("owner:%s token:%s balance or allowance is zero", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
 	}
 	//todo:
-	if market.isOrderFinished(order) {
+	if market.isDustValue(tokenSBalance) {
 		return nil, fmt.Errorf("owner:%s token:%s balance or allowance is not enough", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
 	}
 	return types.ConvertOrderStateToFilledOrder(*order, lrcTokenBalance, tokenSBalance, market.protocolImpl.LrcTokenAddress), nil
@@ -390,4 +390,8 @@ func ratToInt(rat *big.Rat) *big.Int {
 
 func (market *Market) isOrderFinished(orderState *types.OrderState) bool {
 	return market.matcher.marketCapProvider.IsOrderValueDust(orderState)
+}
+
+func (market *Market) isDustValue(value *big.Rat) {
+	return market.matcher.marketCapProvider.IsValueDusted(value)
 }

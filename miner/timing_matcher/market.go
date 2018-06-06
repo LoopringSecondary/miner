@@ -395,6 +395,6 @@ func (market *Market) isOrderFinished(orderState *types.OrderState) bool {
 	return market.matcher.marketCapProvider.IsOrderValueDust(orderState)
 }
 
-func (market *Market) isDustValue(value *big.Rat) {
+func (market *Market) isDustValue(value *big.Rat) bool {
 	return market.matcher.marketCapProvider.IsValueDusted(value)
 }

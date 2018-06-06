@@ -37,8 +37,8 @@ type ZkLockConfig struct {
 }
 
 type ZkLock struct {
-	lockMap  map[string]*zk.Lock
-	mutex    sync.Mutex
+	lockMap map[string]*zk.Lock
+	mutex   sync.Mutex
 }
 
 var ZkClient *zk.Conn
@@ -79,6 +79,6 @@ func ReleaseLock(lockName string) error {
 	}
 }
 
-func IsInit() bool {
+func IsLockInitialed() bool {
 	return nil != zl
 }

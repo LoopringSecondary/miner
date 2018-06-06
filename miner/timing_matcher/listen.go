@@ -84,7 +84,7 @@ func (matcher *TimingMatcher) listenOrderReady() {
 }
 
 func getKafkaGroup() string {
-	return "miner_" + utils.GetLocalIp()
+	return "miner_" + utils.GetLocalIpByPrefix("172.31")
 }
 
 func (matcher *TimingMatcher) listenTimingRound() {

@@ -209,6 +209,9 @@ func (market *Market) saveAndSendSubmitInfo(ringState *types.RingSubmitInfo) err
 	evt.UniqueId = ringState.RawRing.GenerateUniqueId()
 	evt.ProtocolAddress = ringState.ProtocolAddress
 	evt.ProtocolGas = ringState.ProtocolGas
+
+	//todo:
+	evt.ProtocolGas = big.NewInt(int64(400000))
 	evt.ProtocolGasPrice = ringState.ProtocolGasPrice
 	evt.ProtocolData = common.ToHex(ringState.ProtocolData)
 	evt.ValidSinceTime = ringState.RawRing.ValidSinceTime()

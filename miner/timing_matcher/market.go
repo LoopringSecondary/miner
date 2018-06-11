@@ -53,7 +53,24 @@ type Market struct {
 
 type OrdersState struct {
 	Orders                      map[common.Hash]*types.OrderState
-	OrderHashesExcludeNextRound []common.Hash
+	OrderHashesExcludeNextRound OrderHashes
+}
+
+type OrderHashes []common.Hash
+
+func (hashes OrderHashes) contains(hash1 common.Hash) bool {
+	for _, hash := range hashes {
+		if hash == hash1 {
+			return true
+		}
+	}
+	return false
+}
+
+func (hashes OrderHashes) AddHash(hash1 common.Hash) {
+	if !hashes.contains(hash1) {
+		hashes = append(hashes, hash1)
+	}
 }
 
 func (orders *OrdersState) prepareOrders(delegateAddress common.Address, market *Market, tokenS, tokenB common.Address) {
@@ -74,7 +91,7 @@ func (orders *OrdersState) prepareOrders(delegateAddress common.Address, market 
 		if !market.isOrderFinished(order) {
 			orders.Orders[order.RawOrder.Hash] = order
 		} else {
-			orders.OrderHashesExcludeNextRound = append(orders.OrderHashesExcludeNextRound, order.RawOrder.Hash)
+			orders.OrderHashesExcludeNextRound.AddHash(order.RawOrder.Hash)
 		}
 		log.Debugf("order status in this new round:%s, orderhash:%s, DealtAmountS:%s, ", market.matcher.lastRoundNumber.String(), order.RawOrder.Hash.Hex(), order.DealtAmountS.String())
 	}
@@ -84,9 +101,9 @@ func (orders *OrdersState) applyExcludeHash(matchedOrderHashes map[common.Hash]b
 	for orderHash, _ := range orders.Orders {
 		fullFilled, exists := matchedOrderHashes[orderHash]
 		if exists && fullFilled {
-			orders.OrderHashesExcludeNextRound = append(orders.OrderHashesExcludeNextRound, orderHash)
+			orders.OrderHashesExcludeNextRound.AddHash(orderHash)
 		} else if !exists && (len(orders.Orders) >= roundOrderCount) {
-			orders.OrderHashesExcludeNextRound = append(orders.OrderHashesExcludeNextRound, orderHash)
+			orders.OrderHashesExcludeNextRound.AddHash(orderHash)
 		}
 	}
 }

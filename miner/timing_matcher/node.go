@@ -134,11 +134,11 @@ func (node *SingleNode) assignMarkets() {
 }
 
 type ClusterNode struct {
-	toRunMarkets Markets
+	toRunMarkets    Markets
 	assignedMarkets Markets
-	zkBalancer   *zklock.ZkBalancer
-	matcher      *TimingMatcher
-	mtx sync.Mutex
+	zkBalancer      *zklock.ZkBalancer
+	matcher         *TimingMatcher
+	mtx             sync.Mutex
 }
 
 func (node *ClusterNode) assignMarkets() {

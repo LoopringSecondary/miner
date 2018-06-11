@@ -33,6 +33,7 @@ import (
 	"github.com/Loopring/relay-lib/log"
 	"github.com/Loopring/relay-lib/marketcap"
 	"github.com/Loopring/relay-lib/marketutil"
+	"github.com/Loopring/relay-lib/sns"
 	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"sync"
@@ -53,6 +54,7 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 	n.globalConfig = globalConfig
 	// register
 	n.registerMysql()
+	n.registerSnsNotifier()
 	cache.NewCache(n.globalConfig.Redis)
 	marketutil.Initialize(&n.globalConfig.MarketUtil)
 	n.registerMarketCap()
@@ -132,6 +134,10 @@ func (n *Node) registerExtractor() {
 	if err := extractor.Initialize(n.globalConfig.Kafka, getKafkaGroup()); err != nil {
 		log.Fatalf("node start, register extractor error:%s", err.Error())
 	}
+}
+
+func (n *Node) registerSnsNotifier() {
+	sns.Initialize(n.globalConfig.Sns)
 }
 
 func getKafkaGroup() string {

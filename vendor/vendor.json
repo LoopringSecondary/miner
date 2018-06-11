@@ -249,10 +249,10 @@
 			"revisionTime": "2018-05-24T09:59:38Z"
 		},
 		{
-			"checksumSHA1": "6WbWzudZS53u1zP3ogJu7cKAuZM=",
+			"checksumSHA1": "MO69392AC/vTQFAjUs8BhnrtxI8=",
 			"path": "github.com/Loopring/relay-lib/sns",
-			"revision": "59095d2b49e31c3763c8b8e5e4a95f2bf6f9d436",
-			"revisionTime": "2018-06-05T16:41:16Z"
+			"revision": "ffdad6ef5ff5e62c579c61f7ddbb35540540311e",
+			"revisionTime": "2018-06-11T09:41:12Z"
 		},
 		{
 			"checksumSHA1": "BBZ7Lq1YNP5sASzyy73THZm3/uE=",
@@ -308,8 +308,8 @@
 			"checksumSHA1": "79H6/5DVpwkojRFWRS0HMaiXPGM=",
 			"origin": "github.com/Loopring/relay-cluster/vendor/github.com/aws/aws-sdk-go/aws",
 			"path": "github.com/aws/aws-sdk-go/aws",
-			"revision": "5bc8058e7ae7ba8d5d1189e5e3a573921eb59f93",
-			"revisionTime": "2018-05-24T10:01:21Z"
+			"revision": "85e12d2187094e7bbe518f879c498bf35a877794",
+			"revisionTime": "2018-06-08T09:39:30Z"
 		},
 		{
 			"checksumSHA1": "Y9W+4GimK4Fuxq+vyIskVYFRnX4=",
@@ -478,6 +478,12 @@
 			"path": "github.com/aws/aws-sdk-go/service/cloudwatch",
 			"revision": "5bc8058e7ae7ba8d5d1189e5e3a573921eb59f93",
 			"revisionTime": "2018-05-24T10:01:21Z"
+		},
+		{
+			"checksumSHA1": "1Fin0tclPDC/+rL7V06GrzXaMXI=",
+			"path": "github.com/aws/aws-sdk-go/service/sns",
+			"revision": "66bf7704fe812fa39de0fab6d9271624aa8d2514",
+			"revisionTime": "2018-05-16T18:36:35Z"
 		},
 		{
 			"checksumSHA1": "llx3DydC0nTbF0cZoYUjO9P1eZw=",

@@ -33,6 +33,7 @@ import (
 	"github.com/Loopring/relay-lib/marketcap"
 	"github.com/Loopring/relay-lib/marketutil"
 	"github.com/Loopring/relay-lib/motan"
+	"github.com/Loopring/relay-lib/sns"
 	"github.com/Loopring/relay-lib/zklock"
 	"github.com/naoina/toml"
 	"go.uber.org/zap"
@@ -85,6 +86,7 @@ type GlobalConfig struct {
 	ZkLock           zklock.ZkLockConfig
 	DataSource       DataSource
 	Kafka            kafka.KafkaOptions
+	Sns              sns.SnsConfig
 }
 
 type DataSource struct {

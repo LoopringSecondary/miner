@@ -56,7 +56,7 @@ type RingSubmitter struct {
 
 	messageProducer *kafka.MessageProducer
 
-	newRingSubmitInfoConsumer *kafka.ConsumerRegister
+	kafkaConsumer *kafka.ConsumerRegister
 
 	stopFuncs []func()
 }
@@ -80,8 +80,8 @@ func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl, bro
 		return submitter, errors.New("miner.feeReceipt must be a address")
 	}
 
-	submitter.newRingSubmitInfoConsumer = &kafka.ConsumerRegister{}
-	submitter.newRingSubmitInfoConsumer.Initialize(brokers)
+	submitter.kafkaConsumer = &kafka.ConsumerRegister{}
+	submitter.kafkaConsumer.Initialize(brokers)
 
 	for _, addr := range options.NormalMiners {
 		var nonce types.Big
@@ -335,10 +335,42 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 		},
 	}
 	eventemitter.On(eventemitter.Miner_SubmitRing_Method, watcher)
-	eventemitter.On(eventemitter.RingMined, watcher)
+
+	ringminedFunc := func(input interface{}) error {
+		var (
+			txhash      common.Hash
+			status      types.TxStatus
+			blockNumber *big.Int
+			gasUsed     *big.Int
+			eventErr    error
+		)
+		if e1, ok := input.(*types.RingMinedEvent); ok {
+			txhash = e1.TxHash
+			status = e1.Status
+			blockNumber = e1.BlockNumber
+			gasUsed = e1.GasUsed
+			eventErr = errors.New(e1.Err)
+		}
+		log.Debugf("eventemitter.Watchereventemitter.Watcher txhash:%s", txhash.Hex())
+		if infos, err := submitter.dbService.GetRingHashesByTxHash(txhash); nil != err {
+			log.Errorf("err:%s", err.Error())
+		} else {
+			for _, info := range infos {
+				ringhash := common.HexToHash(info.RingHash)
+				uniqueId := common.HexToHash(info.UniqueId)
+				submitter.submitResult(0, ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
+			}
+		}
+		return nil
+	}
+
+	submitter.kafkaConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_orderManager_RingminedUpdated, getKafkaGroup(), types.RingMinedEvent{}, ringminedFunc)
+
+	//eventemitter.On(eventemitter.RingMined, watcher)
 	submitter.stopFuncs = append(submitter.stopFuncs, func() {
 		eventemitter.Un(eventemitter.Miner_SubmitRing_Method, watcher)
-		eventemitter.Un(eventemitter.RingMined, watcher)
+		//submitter.ringminedConsumer.Close()
+		//eventemitter.Un(eventemitter.RingMined, watcher)
 	})
 }
 
@@ -435,7 +467,7 @@ func (submitter *RingSubmitter) listenNewRings() {
 			submitter.stopFuncs = append(submitter.stopFuncs, func() {
 				zklock.ReleaseLock(ZKLOCK_SUBMITTER_MINER_ADDR_PRE + addr)
 			})
-			submitter.newRingSubmitInfoConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+addr, getKafkaGroup(), types.RingSubmitInfoEvent{}, submitter.handleNewRing)
+			submitter.kafkaConsumer.RegisterTopicAndHandler(kafka.Kafka_Topic_Miner_SubmitInfo_Prefix+addr, getKafkaGroup(), types.RingSubmitInfoEvent{}, submitter.handleNewRing)
 		}(minerAddr.Address)
 	}
 }

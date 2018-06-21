@@ -1,25 +1,24 @@
 # Miner
 
 ## 简介
-Miner是Loopring中非常重要的一个角色，他负责从订单池中发现并选择收益最大的环路提交到合约，即完成撮合部分。
+Miner是Loopring中非常重要的一个角色，负责从订单池中发现并选择收益最大的环路提交到合约，即完成撮合部分。
 
-从订单池中获取订单、匹配订单、估计收益、提交交易
-
+## 执行流程
+当前实现的撮合引擎是定时从订单池中获取订单，进行匹配、估计收益，然后提交撮合交易至以太坊合约。
 
 ## 如何编译
 
 获取源代码
 
 ```
-git clone 
+git clone https://github.com/Loopring/miner.git
 ```
-请确保已经配置Go环境，<>
+请确保已经配置Go环境。
 
 ```
 cd miner
 go build -o build/bin/miner cmd/lrc/*
 ```
-
 
 ## 如何运行
 

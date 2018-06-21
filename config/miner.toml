@@ -5,8 +5,8 @@ title = "miner"
     development = true
     disable_stacktrace = false
     encoding = "console"
-    output_paths = ["stdout"]
-    error_output_paths = ["stderr"]
+    output_paths = ["/var/log/relay/zap.log"]
+    error_output_paths = ["/var/log/relay/zap.log"]
     [log.encoder_config]
 	    message_key = "msg"
 	    level_key = "level"
@@ -48,8 +48,8 @@ title = "miner"
 
 [miner]
     ringMaxLength = 4
-    rate_ratio_cvs_threshold = 1000000000000000
-    subsidy = 1.0
+    rate_ratio_cvs_threshold = 100000
+    subsidy = 0.0
     walletSplit = 0.8
     minGasLimit = 1000000000
     maxGasLimit = 100000000000
@@ -70,17 +70,16 @@ title = "miner"
     		max_sumit_failed_count = 3
 
 [keystore]
-    keydir = "/Users/yuhongyu/Desktop/service/go/src/github.com/Loopring/miner/ks_dir"
+    keydir = "miner/ks_dir"
 
 [market_cap]
-        base_url = "https://api.coinmarketcap.com/v1/ticker/?limit=0&convert=%s"
+        base_url = "https://api.coinmarketcap.com/v2/ticker/?convert=%s&start=%d&limit=%d"
         currency = "USD"
         duration = 500
-        is_sync = false
         dust_value = 1.0
 
 [market_util]
-    token_file = "/Users/yuhongyu/Desktop/service/go/src/github.com/Loopring/miner/config/tokens.json"
+    token_file = "miner/config/tokens.json"
     old_version_weth_address = "0x88699e7fee2da0462981a08a15a3b940304cc516"
 
 [data_source]
@@ -88,11 +87,6 @@ title = "miner"
     [data_source.motan_client]
         client_id="miner-client"
     	conf_file="./config/motan_client.yaml"
-	[data_source.order_manager]
-	    cutoff_cache_expire_time = 864000
-        cutoff_cache_clean_time = 0
-    [data_source.account_manager]
-        cache_duration = 8640000
 
 [zk_lock]
     zk_servers = "127.0.0.1:2181"

@@ -9,7 +9,7 @@ Miner是Loopring中非常重要的一个角色，负责从订单池中发现并�
 
 ## 编译部署
 * [aws部署](https://loopring.github.io/relay-cluster/deploy/deploy_index_cn.html#%E6%9C%8D%E5%8A%A1)
-* [Docker](https://loopring.github.io/miner/docker-chinese.html)
+* [Docker](https://loopring.github.io/miner/docker_chinese.html)
 * 源码
     
     ```bash

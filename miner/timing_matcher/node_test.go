@@ -63,7 +63,6 @@ func init() {
 	//zklock.Initialize(zkconfig)
 }
 
-
 func TestSingleNode(t *testing.T) {
 	singleNode := timing_matcher.SingleNode{}
 	singleNode

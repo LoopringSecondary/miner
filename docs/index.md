@@ -15,7 +15,7 @@ The current implementation is a blending engine called timingmatcher. The execut
 
 ## Compile and deploy
 * [Aws deployment](https://loopring.github.io/relay-cluster/deploy/deploy_index.html#%E6%9C%8D%E5%8A%A1)
-* [Docker]((https://loopring.github.io/miner/docker.html))
+* [Docker](docker.md)
 * Source code
     
     ```

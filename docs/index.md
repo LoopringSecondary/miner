@@ -1,5 +1,5 @@
 
-## Introduction
+## About
 The Miner has a very important role in Loopring. It is responsible for discovering and selecting the loop with the highest return from the order pool and submitting it to the contract.
 
 The current implementation is a blending engine called timingmatcher. The execution logic is:
@@ -7,6 +7,11 @@ The current implementation is a blending engine called timingmatcher. The execut
 * Match orders and merge loops
 * Estimate loop revenue and select loops with sufficient revenue
 * The selected loop is submitted to Ethereum in the order of amount of profit
+
+    
+    
+## Documents in Other Languages
+- [Chinese (中文文档)](chinese.md)
 
 ## Compile and deploy
 * [Aws deployment](https://loopring.github.io/relay-cluster/deploy/deploy_index.html#%E6%9C%8D%E5%8A%A1)
@@ -21,10 +26,7 @@ The current implementation is a blending engine called timingmatcher. The execut
     #The miner depends on therelay-cluster、extractor、mysql、redis、kafka、zookeeper、eth nodes, etc.
     build/bin/miner --unlocks="address1,address2" --passwords="pwd1,pwd2" --config=miner.toml
     ```
-    
-    
-## Documents in Other Languages
-- [中文文档（Chinese）](chinese.md)
+
 
 ## Extra Info and Help
 Please visit the official website for contact information and help: https://loopring.org

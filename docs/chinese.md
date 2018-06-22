@@ -8,5 +8,18 @@ Miner是Loopring中非常重要的一个角色，负责从订单池中发现并�
 * 将选取的环路按照收益大小依次提交到以太坊
 
 ## 编译部署
-* [部署](https://loopring.github.io/relay-cluster/deploy/deploy_index_cn.html#%E6%9C%8D%E5%8A%A1)
+* [aws部署](https://loopring.github.io/relay-cluster/deploy/deploy_index_cn.html#%E6%9C%8D%E5%8A%A1)
 * [Docker](https://loopring.github.io/miner/docker-chinese.html)
+* 源码
+    
+    ```bash
+    #本项目代码使用Go编写，请确保已经完成Go环境的配置。
+    git clone https://github.com/Loopring/miner.git
+    cd miner
+    go build -o build/bin/miner cmd/lrc/*
+    #miner依赖于relay-cluster、extractor、mysql、redis、kafka、zookeeper、eth节点等
+    build/bin/miner --unlocks="address1,address2" --passwords="pwd1,pwd2" --config=miner.toml
+    ```
+
+## 支持
+请访问官方网站获取联系方式，获得帮助: https://loopring.org

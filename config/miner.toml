@@ -94,3 +94,7 @@ title = "miner"
 
 [kafka]
     brokers = ["127.0.0.1:9092"]
+
+[cloud_watch]
+    enabled = false
+    region = ""

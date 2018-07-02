@@ -26,6 +26,7 @@ import (
 	"github.com/Loopring/relay-cluster/accountmanager"
 	"github.com/Loopring/relay-cluster/ordermanager"
 	"github.com/Loopring/relay-lib/cache/redis"
+	"github.com/Loopring/relay-lib/cloudwatch"
 	"github.com/Loopring/relay-lib/dao"
 	"github.com/Loopring/relay-lib/eth/accessor"
 	"github.com/Loopring/relay-lib/eth/loopringaccessor"
@@ -87,6 +88,7 @@ type GlobalConfig struct {
 	DataSource       DataSource
 	Kafka            kafka.KafkaOptions
 	Sns              sns.SnsConfig
+	CloudWatch       cloudwatch.CloudWatchConfig
 }
 
 type DataSource struct {

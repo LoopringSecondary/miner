@@ -119,10 +119,10 @@ type CoinMarketCapResult struct {
 	} `json:"metadata"`
 }
 
-type noSupportTokens []common.Address
+type icoTokens []common.Address
 
-func (tokens noSupportTokens) contains(addr common.Address) bool {
-	for _,token := range tokens {
+func (tokens icoTokens) contains(addr common.Address) bool {
+	for _, token := range tokens {
 		if token == addr {
 			return true
 		}
@@ -131,14 +131,16 @@ func (tokens noSupportTokens) contains(addr common.Address) bool {
 }
 
 type CapProvider_CoinMarketCap struct {
-	baseUrl          string
-	tokenMarketCaps  map[common.Address]*CoinMarketCap
-	notSupportTokens noSupportTokens
-	slugToAddress    map[string]common.Address
-	currency         string
-	duration         int
-	dustValue        *big.Rat
-	stopFuncs        []func()
+	baseUrl         string
+	tokenMarketCaps map[common.Address]*CoinMarketCap
+	icoTokens       icoTokens
+	notSupportTokens map[common.Address]bool
+	//icoTokens	noSupportTokens
+	slugToAddress   map[string]common.Address
+	currency        string
+	duration        int
+	dustValue       *big.Rat
+	stopFuncs       []func()
 }
 
 func (p *CapProvider_CoinMarketCap) LegalCurrencyValue(tokenAddress common.Address, amount *big.Rat) (*big.Rat, error) {
@@ -196,19 +198,19 @@ func (p *CapProvider_CoinMarketCap) GetMarketCapByCurrency(tokenAddress common.A
 		if quote, exists := c.Quotes[currencyStr]; exists {
 			v = quote.Price
 		} else {
-			if p.notSupportTokens.contains(tokenAddress) {
-				wethCap,err := p.getMarketCapFromRedis(util.AllTokens["WETH"].Source, currencyStr)
+			if p.icoTokens.contains(tokenAddress) {
+				wethCap, err := p.getMarketCapFromRedis(util.AllTokens["WETH"].Source, currencyStr)
 				if nil == err {
-					if quote,exists := wethCap.Quotes[currencyStr]; exists {
+					if quote, exists := wethCap.Quotes[currencyStr]; exists {
 						v = new(big.Rat).Set(quote.Price)
 						v.Mul(v, util.AllTokens[c.Symbol].IcoPrice)
 					}
 				}
 			} else {
 				var err error
-				c,err = p.getMarketCapFromRedis(c.WebsiteSlug, currencyStr)
+				c, err = p.getMarketCapFromRedis(c.WebsiteSlug, currencyStr)
 				if nil == err {
-					if quote,exists := c.Quotes[currencyStr]; exists {
+					if quote, exists := c.Quotes[currencyStr]; exists {
 						v = quote.Price
 					}
 				}
@@ -367,9 +369,9 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromRedis() error {
 	//todo:use zk to keep
 	//tokenMarketCaps := make(map[common.Address]*CoinMarketCap)
 	syncedFromApi := false
-
+	notSupportTokens := make(map[common.Address]bool)
 	for tokenAddr, c1 := range p.tokenMarketCaps {
-		if p.notSupportTokens.contains(tokenAddr) {
+		if p.icoTokens.contains(tokenAddr) {
 			continue
 		}
 		data, err := cache.Get(p.cacheKey(c1.WebsiteSlug, p.currency))
@@ -381,10 +383,12 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromRedis() error {
 			data, err = cache.Get(p.cacheKey(c1.WebsiteSlug, p.currency))
 		}
 		if nil != err {
+			notSupportTokens[tokenAddr] = true
 			log.Errorf("can't get marketcap of token:%s", tokenAddr.Hex())
 		} else {
 			c := &CoinMarketCap{}
 			if err := json.Unmarshal(data, c); nil != err {
+				notSupportTokens[tokenAddr] = true
 				log.Errorf("get marketcap of token err:%s", err.Error())
 			} else {
 				p.tokenMarketCaps[tokenAddr].Quotes = c.Quotes
@@ -396,11 +400,11 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromRedis() error {
 			}
 		}
 	}
-
+	p.notSupportTokens = notSupportTokens
 	wethAddress := util.AllTokens["WETH"].Protocol
 
 	for currency, wethCap := range p.tokenMarketCaps[wethAddress].Quotes {
-		for _, tokenAddr := range p.notSupportTokens {
+		for _, tokenAddr := range p.icoTokens {
 			if c, exists := p.tokenMarketCaps[tokenAddr]; exists {
 				if nil == c.Quotes {
 					c.Quotes = make(map[string]*MarketCap)
@@ -414,6 +418,11 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromRedis() error {
 	}
 
 	return nil
+}
+
+func (p *CapProvider_CoinMarketCap) IsSupport(token common.Address) bool {
+	_,exists := p.notSupportTokens[token]
+	return !exists
 }
 
 func (p *CapProvider_CoinMarketCap) icoPriceTokens() []common.Address {
@@ -440,7 +449,8 @@ func NewMarketCapProvider(options *MarketCapOptions) *CapProvider_CoinMarketCap 
 	provider.baseUrl = options.BaseUrl
 	provider.currency = options.Currency
 	provider.tokenMarketCaps = make(map[common.Address]*CoinMarketCap)
-	provider.notSupportTokens = provider.icoPriceTokens()
+	provider.notSupportTokens = make(map[common.Address]bool)
+	provider.icoTokens = provider.icoPriceTokens()
 	provider.slugToAddress = make(map[string]common.Address)
 	provider.duration = options.Duration
 	provider.dustValue = options.DustValue
@@ -492,8 +502,14 @@ func NewMarketCapProvider(options *MarketCapOptions) *CapProvider_CoinMarketCap 
 }
 
 func (p *CapProvider_CoinMarketCap) IsOrderValueDust(state *types.OrderState) bool {
-	remainedAmountS, _ := state.RemainedAmount()
-	remainedValue, _ := p.LegalCurrencyValue(state.RawOrder.TokenS, remainedAmountS)
+	remainedAmountS, remainedAmountB := state.RemainedAmount()
+
+	remainedValue := new(big.Rat)
+	if p.IsSupport(state.RawOrder.TokenS) {
+		remainedValue, _ = p.LegalCurrencyValue(state.RawOrder.TokenS, remainedAmountS)
+	} else {
+		remainedValue, _ = p.LegalCurrencyValue(state.RawOrder.TokenB, remainedAmountB)
+	}
 
 	return p.IsValueDusted(remainedValue)
 }

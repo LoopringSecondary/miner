@@ -34,7 +34,7 @@ import (
 )
 
 type Evaluator struct {
-	marketCapProvider         marketcap.MarketCapProvider
+	marketCapProvider         marketcap.CapProvider_CoinMarketCap
 	rateRatioCVSThreshold     int64
 	gasUsedWithLength         map[int]*big.Int
 	realCostRate, walletSplit *big.Rat
@@ -215,7 +215,15 @@ func (e *Evaluator) computeFeeOfRingAndOrder(ringState *types.Ring) error {
 			savingAmount.Mul(filledOrder.FillAmountB, sPrice)
 			savingAmount.Sub(savingAmount, filledOrder.FillAmountS)
 			filledOrder.FeeS = savingAmount
-			legalAmountOfSaving, err = e.getLegalCurrency(filledOrder.OrderState.RawOrder.TokenS, filledOrder.FeeS)
+			if !e.marketCapProvider.IsSupport(filledOrder.OrderState.RawOrder.TokenS) {
+				bPrice := new(big.Rat)
+				bPrice.Quo(amountB, amountS)
+				feeB := new(big.Rat)
+				feeB.Mul(savingAmount, bPrice)
+				legalAmountOfSaving, err = e.getLegalCurrency(filledOrder.OrderState.RawOrder.TokenB, bPrice)
+			} else {
+				legalAmountOfSaving, err = e.getLegalCurrency(filledOrder.OrderState.RawOrder.TokenS, filledOrder.FeeS)
+			}
 			if nil != err {
 				return err
 			}
@@ -224,7 +232,17 @@ func (e *Evaluator) computeFeeOfRingAndOrder(ringState *types.Ring) error {
 			savingAmount.Mul(savingAmount, ringState.ReducedRate)
 			savingAmount.Sub(filledOrder.FillAmountB, savingAmount)
 			filledOrder.FeeS = savingAmount
-			legalAmountOfSaving, err = e.getLegalCurrency(filledOrder.OrderState.RawOrder.TokenB, filledOrder.FeeS)
+			if !e.marketCapProvider.IsSupport(filledOrder.OrderState.RawOrder.TokenB) {
+				amountS := new(big.Rat).SetInt(filledOrder.OrderState.RawOrder.AmountS)
+				amountB := new(big.Rat).SetInt(filledOrder.OrderState.RawOrder.AmountB)
+				sPrice := new(big.Rat)
+				sPrice.Quo(amountS, amountB)
+				feeS := new(big.Rat)
+				feeS.Mul(savingAmount, sPrice)
+				legalAmountOfSaving, err = e.getLegalCurrency(filledOrder.OrderState.RawOrder.TokenS, feeS)
+			} else {
+				legalAmountOfSaving, err = e.getLegalCurrency(filledOrder.OrderState.RawOrder.TokenB, filledOrder.FeeS)
+			}
 			if nil != err {
 				return err
 			}

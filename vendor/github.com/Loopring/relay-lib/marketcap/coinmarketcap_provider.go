@@ -153,7 +153,9 @@ func (p *CapProvider_CoinMarketCap) LegalCurrencyValueOfEth(amount *big.Rat) (*b
 }
 
 func (p *CapProvider_CoinMarketCap) LegalCurrencyValueByCurrency(tokenAddress common.Address, amount *big.Rat, currencyStr string) (*big.Rat, error) {
-	if c, exists := p.tokenMarketCaps[tokenAddress]; !exists {
+	if _,exists := p.notSupportTokens[tokenAddress]; exists {
+		return big.NewRat(int64(0), int64(1)), nil
+	} else if c, exists := p.tokenMarketCaps[tokenAddress]; !exists {
 		return nil, errors.New("not found tokenCap:" + tokenAddress.Hex())
 	} else {
 		v := new(big.Rat).SetInt(c.Decimals)
@@ -193,7 +195,9 @@ func (p *CapProvider_CoinMarketCap) getMarketCapFromRedis(websiteSlug string, cu
 }
 
 func (p *CapProvider_CoinMarketCap) GetMarketCapByCurrency(tokenAddress common.Address, currencyStr string) (*big.Rat, error) {
-	if c, exists := p.tokenMarketCaps[tokenAddress]; exists {
+	if _,exists := p.notSupportTokens[tokenAddress]; exists {
+		return big.NewRat(int64(0), int64(1)), nil
+	} else if c, exists := p.tokenMarketCaps[tokenAddress]; exists {
 		var v *big.Rat
 		if quote, exists := c.Quotes[currencyStr]; exists {
 			v = quote.Price
@@ -502,14 +506,10 @@ func NewMarketCapProvider(options *MarketCapOptions) *CapProvider_CoinMarketCap 
 }
 
 func (p *CapProvider_CoinMarketCap) IsOrderValueDust(state *types.OrderState) bool {
-	remainedAmountS, remainedAmountB := state.RemainedAmount()
+	remainedAmountS, _ := state.RemainedAmount()
 
 	remainedValue := new(big.Rat)
-	if p.IsSupport(state.RawOrder.TokenS) {
-		remainedValue, _ = p.LegalCurrencyValue(state.RawOrder.TokenS, remainedAmountS)
-	} else {
-		remainedValue, _ = p.LegalCurrencyValue(state.RawOrder.TokenB, remainedAmountB)
-	}
+	remainedValue, _ = p.LegalCurrencyValue(state.RawOrder.TokenS, remainedAmountS)
 
 	return p.IsValueDusted(remainedValue)
 }
@@ -517,3 +517,9 @@ func (p *CapProvider_CoinMarketCap) IsOrderValueDust(state *types.OrderState) bo
 func (p *CapProvider_CoinMarketCap) IsValueDusted(value *big.Rat) bool {
 	return p.dustValue.Cmp(value) > 0
 }
+
+
+
+
+
+

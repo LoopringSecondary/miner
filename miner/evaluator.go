@@ -34,7 +34,7 @@ import (
 )
 
 type Evaluator struct {
-	marketCapProvider         marketcap.CapProvider_CoinMarketCap
+	marketCapProvider         marketcap.MarketCapProvider
 	rateRatioCVSThreshold     int64
 	gasUsedWithLength         map[int]*big.Int
 	realCostRate, walletSplit *big.Rat

@@ -64,7 +64,8 @@ func NewNode(globalConfig *config.GlobalConfig) *Node {
 	if _, err := zklock.Initialize(globalConfig.ZkLock); nil != err {
 		log.Fatalf("err:%s", err.Error())
 	}
-	if err := cloudwatch.Initialize(); nil != err {
+
+	if err := cloudwatch.Initialize(n.globalConfig.CloudWatch); nil != err {
 		log.Errorf("err:%s", err.Error())
 	}
 	datasource.Initialize(globalConfig.DataSource, globalConfig.Mysql, n.marketCapProvider)

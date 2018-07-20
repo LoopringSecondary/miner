@@ -373,7 +373,7 @@ func (market *Market) generateFilledOrder(order *types.OrderState) (*types.Fille
 		}
 	} else {
 		bPrice := new(big.Rat)
-		bPrice.Quo(order.RawOrder.AmountB, order.RawOrder.AmountS)
+		bPrice.Quo(new(big.Rat).SetInt(order.RawOrder.AmountB), new(big.Rat).SetInt(order.RawOrder.AmountS))
 		amountB := new(big.Rat)
 		amountB.Mul(tokenSBalance, bPrice)
 		if market.isDustValue(order.RawOrder.TokenB, amountB) {

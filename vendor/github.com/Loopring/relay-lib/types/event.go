@@ -207,6 +207,7 @@ type RingSubmitResultEvent struct {
 	BlockNumber  *big.Int    `json:"block_number"`
 	UsedGas      *big.Int    `json:"used_gas"`
 	Err          string      `json:"err"`
+	TxNonce uint64 `json:"tx_nonce"`
 }
 
 type ForkedEvent struct {

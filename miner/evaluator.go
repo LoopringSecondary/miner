@@ -263,7 +263,7 @@ func (e *Evaluator) computeFeeOfRingAndOrder(ringState *types.Ring) error {
 
 		lrcFee := new(big.Rat).SetInt(big.NewInt(int64(2)))
 		lrcFee.Mul(lrcFee, filledOrder.LegalLrcFee)
-		if lrcFee.Cmp(filledOrder.LegalFeeS) < 0 && feeReceiptLrcAvailableAmount.Cmp(filledOrder.LrcFee) > 0 {
+		if lrcFee.Sign() == 0 || (lrcFee.Cmp(filledOrder.LegalFeeS) < 0 && feeReceiptLrcAvailableAmount.Cmp(filledOrder.LrcFee) > 0) {
 			filledOrder.FeeSelection = 1
 			filledOrder.LegalFeeS.Sub(filledOrder.LegalFeeS, filledOrder.LegalLrcFee)
 			filledOrder.LrcReward = filledOrder.LegalLrcFee
@@ -385,7 +385,7 @@ func (e *Evaluator) evaluateReceived(ringState *types.Ring) {
 
 func NewEvaluator(marketCapProvider marketcap.MarketCapProvider, minerOptions config.MinerOptions) *Evaluator {
 	gasUsedMap := make(map[int]*big.Int)
-	gasUsedMap[2] = big.NewInt(500000)
+	gasUsedMap[2] = big.NewInt(400000)
 	//todo:confirm this value
 	gasUsedMap[3] = big.NewInt(500000)
 	gasUsedMap[4] = big.NewInt(500000)

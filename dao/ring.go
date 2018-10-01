@@ -20,6 +20,7 @@ package dao
 
 import (
 	"github.com/Loopring/relay-lib/types"
+	"github.com/Loopring/relay/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -121,23 +122,23 @@ func (s *RdsServiceImpl) GetFilledOrderByRinghash(ringhash common.Hash) ([]*Fill
 }
 
 type RingSubmitInfo struct {
-	ID               int    `gorm:"column:id;primary_key;"`
-	RingHash         string `gorm:"column:ringhash;type:varchar(82)"`
-	UniqueId         string `gorm:"column:unique_id;type:varchar(82)"`
-	ProtocolAddress  string `gorm:"column:protocol_address;type:varchar(42)"`
-	OrdersCount      int64  `gorm:"column:order_count;type:bigint"`
-	ProtocolData     string `gorm:"column:protocol_data;type:text"`
-	ProtocolGas      string `gorm:"column:protocol_gas;type:varchar(50)"`
-	ProtocolGasPrice string `gorm:"column:protocol_gas_price;type:varchar(50)"`
-	ProtocolUsedGas  string `gorm:"column:protocol_used_gas;type:varchar(50)"`
-	ProtocolTxHash   string `gorm:"column:protocol_tx_hash;type:varchar(82)"`
-
-	Status      int       `gorm:"column:status;type:int"`
-	RingIndex   string    `gorm:"column:ring_index;type:varchar(50)"`
-	BlockNumber string    `gorm:"column:block_number;type:varchar(50)"`
-	Miner       string    `gorm:"column:miner;type:varchar(42)"`
-	Err         string    `gorm:"column:err;type:text"`
-	CreateTime  time.Time `gorm:"column:create_time;type:TIMESTAMP;default:CURRENT_TIMESTAMP"`
+	ID               int       `gorm:"column:id;primary_key;"`
+	RingHash         string    `gorm:"column:ringhash;type:varchar(82)"`
+	UniqueId         string    `gorm:"column:unique_id;type:varchar(82)"`
+	ProtocolAddress  string    `gorm:"column:protocol_address;type:varchar(42)"`
+	OrdersCount      int64     `gorm:"column:order_count;type:bigint"`
+	ProtocolData     string    `gorm:"column:protocol_data;type:text"`
+	ProtocolGas      string    `gorm:"column:protocol_gas;type:varchar(50)"`
+	ProtocolGasPrice string    `gorm:"column:protocol_gas_price;type:varchar(50)"`
+	ProtocolUsedGas  string    `gorm:"column:protocol_used_gas;type:varchar(50)"`
+	ProtocolTxHash   string    `gorm:"column:protocol_tx_hash;type:varchar(82)"`
+	TxNonce          uint64    `gorm:"column:tx_nonce;type:bigint"`
+	Status           int       `gorm:"column:status;type:int"`
+	RingIndex        string    `gorm:"column:ring_index;type:varchar(50)"`
+	BlockNumber      string    `gorm:"column:block_number;type:varchar(50)"`
+	Miner            string    `gorm:"column:miner;type:varchar(42)"`
+	Err              string    `gorm:"column:err;type:text"`
+	CreateTime       time.Time `gorm:"column:create_time;type:TIMESTAMP;default:CURRENT_TIMESTAMP"`
 }
 
 func getBigIntString(v *big.Int) string {
@@ -209,6 +210,9 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 		"protocol_tx_hash":  submitResult.TxHash.Hex(),
 		"err":               submitResult.Err,
 	}
+	if submitResult.TxNonce > 0 {
+		items["tx_nonce"] = submitResult.TxNonce
+	}
 	//if "" != submitResult.Err {
 	//	items["err"] = submitResult.Err
 	//}
@@ -231,6 +235,34 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 
 func (s *RdsServiceImpl) GetRingForSubmitByHash(ringhash common.Hash) (ringForSubmit RingSubmitInfo, err error) {
 	err = s.Db.Where("ringhash = ? ", ringhash.Hex()).First(&ringForSubmit).Error
+	return
+}
+
+func (s *RdsServiceImpl) GetPendingTx(createTime int64) (ringForSubmits []RingSubmitInfo, err error) {
+	ringForSubmits = []RingSubmitInfo{}
+	minerBlockedNonce := map[string]interface{}{
+		"miner":        "",
+		"blockedNonce": uint64(0),
+	}
+	s.Db.Raw("select " +
+		"miner, " +
+		"max(tx_nonce) blockedNonce" +
+		"from lpr_ring_submit_infos " +
+		" where status = 2" +
+		"group by miner").Scan(&minerBlockedNonce)
+	if len(minerBlockedNonce) > 0 {
+		for miner, nonce := range minerBlockedNonce {
+			var list []RingSubmitInfo
+			s.Db.Where("create_time > ? and status = ? and miner = ? and tx_nonce > ?", createTime, 0, miner, nonce).Scan(&list)
+			if len(list) > 0 {
+				for _, info := range list {
+					ringForSubmits = append(ringForSubmits, info)
+				}
+			} else {
+				log.Debugf("can't get pendingtx of owner:%s, nonce:%d in submitringinfo", miner, nonce)
+			}
+		}
+	}
 	return
 }
 

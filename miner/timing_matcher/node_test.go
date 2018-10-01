@@ -65,7 +65,6 @@ func init() {
 
 func TestSingleNode(t *testing.T) {
 	singleNode := timing_matcher.SingleNode{}
-	singleNode
 }
 
 func TestClusterNode(t *testing.T) {

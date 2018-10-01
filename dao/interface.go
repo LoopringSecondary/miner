@@ -31,4 +31,5 @@ type RdsService interface {
 	//GetRingminedMethods(lastId int, limit int) ([]types.RingMinedEvent, error)
 	GetFilledOrderByRinghash(ringhash common.Hash) ([]*FilledOrder, error)
 	UpdateRingSubmitInfoErrById(id int, err error) error
+	GetPendingTx(createTime int64) (ringForSubmits []RingSubmitInfo, err error)
 }

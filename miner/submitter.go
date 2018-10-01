@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"strings"
+	"time"
 )
 
 //保存ring，并将ring发送到区块链，同样需要分为待完成和已完成
@@ -229,7 +230,7 @@ func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 		if types.TX_STATUS_PENDING == status {
 			submitter.sendPendingTransaction(tx, evt.Miner)
 		}
-		submitter.submitResult(evt.SubmitInfoId, evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
+		submitter.submitResult(evt.SubmitInfoId,tx.Nonce(), evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
 	} else {
 		log.Errorf("receive submitInfo ,but type not match")
 		return errors.New("type not match")
@@ -255,7 +256,7 @@ func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (comm
 		}
 
 		txHashStr := "0x"
-		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe)
+		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe, nil)
 		if nil != err {
 			log.Errorf("submitring hash:%s, err:%s", evt.Ringhash.Hex(), err.Error())
 			status = types.TX_STATUS_FAILED
@@ -328,7 +329,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 				for _, info := range infos {
 					ringhash := common.HexToHash(info.RingHash)
 					uniqueId := common.HexToHash(info.UniqueId)
-					submitter.submitResult(0, ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
+					submitter.submitResult(0, uint64(info.TxNonce), ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
 				}
 			}
 			return nil
@@ -358,7 +359,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 			for _, info := range infos {
 				ringhash := common.HexToHash(info.RingHash)
 				uniqueId := common.HexToHash(info.UniqueId)
-				submitter.submitResult(0, ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
+				submitter.submitResult(0, uint64(info.TxNonce), ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
 			}
 		}
 		return nil
@@ -374,7 +375,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 	})
 }
 
-func (submitter *RingSubmitter) submitResult(recordId int, ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
+func (submitter *RingSubmitter) submitResult(recordId int,txNonce uint64, ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
 	if nil == err {
 		err = errors.New("")
 	}
@@ -388,6 +389,7 @@ func (submitter *RingSubmitter) submitResult(recordId int, ringhash, uniqeId, tx
 		RingIndex:    ringIndex,
 		BlockNumber:  blockNumber,
 		UsedGas:      usedGas,
+		TxNonce:txNonce,
 	}
 	if err := submitter.dbService.UpdateRingSubmitInfoResult(resultEvt); nil != err {
 		log.Errorf("err:%s", err.Error())
@@ -477,6 +479,7 @@ func (submitter *RingSubmitter) start() {
 	//submitter.listenSubmitRingMethodEventFromMysql()
 	submitter.listenBlockNew()
 	submitter.listenSubmitRingMethodEvent()
+	submitter.monitorAndReSubmitRing()
 }
 
 func (submitter *RingSubmitter) availableSenderAddresses() []*NormalSenderAddress {
@@ -507,6 +510,40 @@ func (submitter *RingSubmitter) selectSenderAddress() (common.Address, error) {
 	} else {
 		return senderAddresses[0].Address, nil
 	}
+}
+
+func (submitter *RingSubmitter) monitorAndReSubmitRing() {
+	stopChan := make(chan bool)
+	go func() {
+		for {
+			select {
+			case <-time.After(10 * time.Second):
+				createTime := time.Now().Unix() - 10*60
+				if pendingInfos,err := submitter.dbService.GetPendingTx(createTime);nil == err {
+					for _,info := range pendingInfos {
+						gas := new(big.Int)
+						gas.SetString(info.ProtocolGas, 0)
+						gasPrice := new(big.Int)
+						gasPrice.SetString(info.ProtocolGasPrice, 0)
+						accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
+							common.HexToAddress(info.ProtocolAddress),
+							gas,
+							gasPrice,
+							nil,
+							 common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)))
+					}
+				}
+
+			case <-stopChan:
+				return
+			}
+		}
+	}()
+
+	submitter.stopFuncs = append(submitter.stopFuncs, func() {
+		stopChan <- true
+		close(stopChan)
+	})
 }
 
 //func (submitter *RingSubmitter) computeReceivedAndSelectMiner(ringSubmitInfo *types.RingSubmitInfo) error {

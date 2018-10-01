@@ -243,13 +243,13 @@ func (s *RdsServiceImpl) GetPendingTx(createTime int64) (ringForSubmits []RingSu
 	minerBlockedNonce := []map[string]interface{}{}
 	if err = s.Db.Raw("select " +
 		"miner, " +
-		"max(tx_nonce) blockedNonce" +
-		"from lpr_ring_submit_infos " +
-		" where status = 2" +
-		"group by miner").Scan(&minerBlockedNonce).Error; nil == err {
+		"max(tx_nonce) blockedNonce " +
+		" from lpr_ring_submit_infos " +
+		" where status = 2 " +
+		" group by miner ").Scan(&minerBlockedNonce).Error; nil == err {
 		for miner, nonce := range minerBlockedNonce {
 			var list []RingSubmitInfo
-			if err1 := s.Db.Where("create_time > ? and status = ? and miner = ? and tx_nonce > ?", createTime, 0, miner, nonce).Scan(&list).Error; nil == err1 {
+			if err1 := s.Db.Where(" create_time > ? and status = ? and miner = ? and tx_nonce > ? ", createTime, 0, miner, nonce).Scan(&list).Error; nil == err1 {
 				if len(list) > 0 {
 					for _, info := range list {
 						ringForSubmits = append(ringForSubmits, info)

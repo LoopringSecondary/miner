@@ -38,7 +38,7 @@ func loadConfig() *config.GlobalConfig {
 func TestRdsServiceImpl_GetPendingTx(t *testing.T) {
 	cfg := loadConfig()
 	s := dao.NewRdsService(cfg.Mysql)
-	createTime := time.Now().Unix() - 3600
+	createTime := time.Now().Unix() - 10*60
 	if infos,err := s.GetPendingTx(createTime);nil !=err {
 		println(err.Error())
 	} else {

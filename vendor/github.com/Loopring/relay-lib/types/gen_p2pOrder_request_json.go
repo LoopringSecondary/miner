@@ -11,11 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var _ = (*orderJsonRequestMarshaling)(nil)
+var _ = (*p2pOrderJsonRequestMarshaling)(nil)
 
 // MarshalJSON marshals as JSON.
-func (o OrderJsonRequest) MarshalJSON() ([]byte, error) {
-	type OrderJsonRequest struct {
+func (p P2POrderJsonRequest) MarshalJSON() ([]byte, error) {
+	type P2POrderJsonRequest struct {
 		Protocol              common.Address             `json:"protocol" gencodec:"required"`
 		DelegateAddress       common.Address             `json:"delegateAddress" gencodec:"required"`
 		TokenS                common.Address             `json:"tokenS" gencodec:"required"`
@@ -40,42 +40,44 @@ func (o OrderJsonRequest) MarshalJSON() ([]byte, error) {
 		PowNonce              uint64                     `json:"powNonce"`
 		Side                  string                     `json:"side"`
 		OrderType             string                     `json:"orderType"`
+		MakerOrderHash        common.Hash                `json:"makerOrderHash"`
 		P2PSide               string                     `json:"p2pSide"`
 		SourceId              string                     `json:"sourceId"`
 	}
-	var enc OrderJsonRequest
-	enc.Protocol = o.Protocol
-	enc.DelegateAddress = o.DelegateAddress
-	enc.TokenS = o.TokenS
-	enc.TokenB = o.TokenB
-	enc.AuthAddr = o.AuthAddr
-	enc.AuthPrivateKey = o.AuthPrivateKey
-	enc.WalletAddress = o.WalletAddress
-	enc.AmountS = (*Big)(o.AmountS)
-	enc.AmountB = (*Big)(o.AmountB)
-	enc.ValidSince = (*Big)(o.ValidSince)
-	enc.ValidUntil = (*Big)(o.ValidUntil)
-	enc.LrcFee = (*Big)(o.LrcFee)
-	enc.BuyNoMoreThanAmountB = o.BuyNoMoreThanAmountB
-	enc.MarginSplitPercentage = o.MarginSplitPercentage
-	enc.V = o.V
-	enc.R = o.R
-	enc.S = o.S
-	enc.Price = o.Price
-	enc.Owner = o.Owner
-	enc.Hash = o.Hash
-	enc.CreateTime = o.CreateTime
-	enc.PowNonce = o.PowNonce
-	enc.Side = o.Side
-	enc.OrderType = o.OrderType
-	enc.P2PSide = o.P2PSide
-	enc.SourceId = o.SourceId
+	var enc P2POrderJsonRequest
+	enc.Protocol = p.Protocol
+	enc.DelegateAddress = p.DelegateAddress
+	enc.TokenS = p.TokenS
+	enc.TokenB = p.TokenB
+	enc.AuthAddr = p.AuthAddr
+	enc.AuthPrivateKey = p.AuthPrivateKey
+	enc.WalletAddress = p.WalletAddress
+	enc.AmountS = (*Big)(p.AmountS)
+	enc.AmountB = (*Big)(p.AmountB)
+	enc.ValidSince = (*Big)(p.ValidSince)
+	enc.ValidUntil = (*Big)(p.ValidUntil)
+	enc.LrcFee = (*Big)(p.LrcFee)
+	enc.BuyNoMoreThanAmountB = p.BuyNoMoreThanAmountB
+	enc.MarginSplitPercentage = p.MarginSplitPercentage
+	enc.V = p.V
+	enc.R = p.R
+	enc.S = p.S
+	enc.Price = p.Price
+	enc.Owner = p.Owner
+	enc.Hash = p.Hash
+	enc.CreateTime = p.CreateTime
+	enc.PowNonce = p.PowNonce
+	enc.Side = p.Side
+	enc.OrderType = p.OrderType
+	enc.MakerOrderHash = p.MakerOrderHash
+	enc.P2PSide = p.P2PSide
+	enc.SourceId = p.SourceId
 	return json.Marshal(&enc)
 }
 
 // UnmarshalJSON unmarshals from JSON.
-func (o *OrderJsonRequest) UnmarshalJSON(input []byte) error {
-	type OrderJsonRequest struct {
+func (p *P2POrderJsonRequest) UnmarshalJSON(input []byte) error {
+	type P2POrderJsonRequest struct {
 		Protocol              *common.Address             `json:"protocol" gencodec:"required"`
 		DelegateAddress       *common.Address             `json:"delegateAddress" gencodec:"required"`
 		TokenS                *common.Address             `json:"tokenS" gencodec:"required"`
@@ -100,105 +102,109 @@ func (o *OrderJsonRequest) UnmarshalJSON(input []byte) error {
 		PowNonce              *uint64                     `json:"powNonce"`
 		Side                  *string                     `json:"side"`
 		OrderType             *string                     `json:"orderType"`
+		MakerOrderHash        *common.Hash                `json:"makerOrderHash"`
 		P2PSide               *string                     `json:"p2pSide"`
 		SourceId              *string                     `json:"sourceId"`
 	}
-	var dec OrderJsonRequest
+	var dec P2POrderJsonRequest
 	if err := json.Unmarshal(input, &dec); err != nil {
 		return err
 	}
 	if dec.Protocol == nil {
-		return errors.New("missing required field 'protocol' for OrderJsonRequest")
+		return errors.New("missing required field 'protocol' for P2POrderJsonRequest")
 	}
-	o.Protocol = *dec.Protocol
+	p.Protocol = *dec.Protocol
 	if dec.DelegateAddress == nil {
-		return errors.New("missing required field 'delegateAddress' for OrderJsonRequest")
+		return errors.New("missing required field 'delegateAddress' for P2POrderJsonRequest")
 	}
-	o.DelegateAddress = *dec.DelegateAddress
+	p.DelegateAddress = *dec.DelegateAddress
 	if dec.TokenS == nil {
-		return errors.New("missing required field 'tokenS' for OrderJsonRequest")
+		return errors.New("missing required field 'tokenS' for P2POrderJsonRequest")
 	}
-	o.TokenS = *dec.TokenS
+	p.TokenS = *dec.TokenS
 	if dec.TokenB == nil {
-		return errors.New("missing required field 'tokenB' for OrderJsonRequest")
+		return errors.New("missing required field 'tokenB' for P2POrderJsonRequest")
 	}
-	o.TokenB = *dec.TokenB
+	p.TokenB = *dec.TokenB
 	if dec.AuthAddr == nil {
-		return errors.New("missing required field 'authAddr' for OrderJsonRequest")
+		return errors.New("missing required field 'authAddr' for P2POrderJsonRequest")
 	}
-	o.AuthAddr = *dec.AuthAddr
+	p.AuthAddr = *dec.AuthAddr
 	if dec.AuthPrivateKey != nil {
-		o.AuthPrivateKey = *dec.AuthPrivateKey
+		p.AuthPrivateKey = *dec.AuthPrivateKey
 	}
 	if dec.WalletAddress == nil {
-		return errors.New("missing required field 'walletAddress' for OrderJsonRequest")
+		return errors.New("missing required field 'walletAddress' for P2POrderJsonRequest")
 	}
-	o.WalletAddress = *dec.WalletAddress
+	p.WalletAddress = *dec.WalletAddress
 	if dec.AmountS == nil {
-		return errors.New("missing required field 'amountS' for OrderJsonRequest")
+		return errors.New("missing required field 'amountS' for P2POrderJsonRequest")
 	}
-	o.AmountS = (*big.Int)(dec.AmountS)
+	p.AmountS = (*big.Int)(dec.AmountS)
 	if dec.AmountB == nil {
-		return errors.New("missing required field 'amountB' for OrderJsonRequest")
+		return errors.New("missing required field 'amountB' for P2POrderJsonRequest")
 	}
-	o.AmountB = (*big.Int)(dec.AmountB)
+	p.AmountB = (*big.Int)(dec.AmountB)
 	if dec.ValidSince == nil {
-		return errors.New("missing required field 'validSince' for OrderJsonRequest")
+		return errors.New("missing required field 'validSince' for P2POrderJsonRequest")
 	}
-	o.ValidSince = (*big.Int)(dec.ValidSince)
+	p.ValidSince = (*big.Int)(dec.ValidSince)
 	if dec.ValidUntil == nil {
-		return errors.New("missing required field 'validUntil' for OrderJsonRequest")
+		return errors.New("missing required field 'validUntil' for P2POrderJsonRequest")
 	}
-	o.ValidUntil = (*big.Int)(dec.ValidUntil)
+	p.ValidUntil = (*big.Int)(dec.ValidUntil)
 	if dec.LrcFee != nil {
-		o.LrcFee = (*big.Int)(dec.LrcFee)
+		p.LrcFee = (*big.Int)(dec.LrcFee)
 	}
 	if dec.BuyNoMoreThanAmountB == nil {
-		return errors.New("missing required field 'buyNoMoreThanAmountB' for OrderJsonRequest")
+		return errors.New("missing required field 'buyNoMoreThanAmountB' for P2POrderJsonRequest")
 	}
-	o.BuyNoMoreThanAmountB = *dec.BuyNoMoreThanAmountB
+	p.BuyNoMoreThanAmountB = *dec.BuyNoMoreThanAmountB
 	if dec.MarginSplitPercentage == nil {
-		return errors.New("missing required field 'marginSplitPercentage' for OrderJsonRequest")
+		return errors.New("missing required field 'marginSplitPercentage' for P2POrderJsonRequest")
 	}
-	o.MarginSplitPercentage = *dec.MarginSplitPercentage
+	p.MarginSplitPercentage = *dec.MarginSplitPercentage
 	if dec.V == nil {
-		return errors.New("missing required field 'v' for OrderJsonRequest")
+		return errors.New("missing required field 'v' for P2POrderJsonRequest")
 	}
-	o.V = *dec.V
+	p.V = *dec.V
 	if dec.R == nil {
-		return errors.New("missing required field 'r' for OrderJsonRequest")
+		return errors.New("missing required field 'r' for P2POrderJsonRequest")
 	}
-	o.R = *dec.R
+	p.R = *dec.R
 	if dec.S == nil {
-		return errors.New("missing required field 's' for OrderJsonRequest")
+		return errors.New("missing required field 's' for P2POrderJsonRequest")
 	}
-	o.S = *dec.S
+	p.S = *dec.S
 	if dec.Price != nil {
-		o.Price = dec.Price
+		p.Price = dec.Price
 	}
 	if dec.Owner != nil {
-		o.Owner = *dec.Owner
+		p.Owner = *dec.Owner
 	}
 	if dec.Hash != nil {
-		o.Hash = *dec.Hash
+		p.Hash = *dec.Hash
 	}
 	if dec.CreateTime != nil {
-		o.CreateTime = *dec.CreateTime
+		p.CreateTime = *dec.CreateTime
 	}
 	if dec.PowNonce != nil {
-		o.PowNonce = *dec.PowNonce
+		p.PowNonce = *dec.PowNonce
 	}
 	if dec.Side != nil {
-		o.Side = *dec.Side
+		p.Side = *dec.Side
 	}
 	if dec.OrderType != nil {
-		o.OrderType = *dec.OrderType
+		p.OrderType = *dec.OrderType
+	}
+	if dec.MakerOrderHash != nil {
+		p.MakerOrderHash = *dec.MakerOrderHash
 	}
 	if dec.P2PSide != nil {
-		o.P2PSide = *dec.P2PSide
+		p.P2PSide = *dec.P2PSide
 	}
 	if dec.SourceId != nil {
-		o.SourceId = *dec.SourceId
+		p.SourceId = *dec.SourceId
 	}
 	return nil
 }

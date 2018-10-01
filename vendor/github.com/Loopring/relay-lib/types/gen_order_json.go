@@ -41,6 +41,8 @@ func (o Order) MarshalJSON() ([]byte, error) {
 		PowNonce              uint64                     `json:"powNonce"`
 		Side                  string                     `json:"side"`
 		OrderType             string                     `json:"orderType"`
+		P2PSide               string                     `json:"p2pSide"`
+		SourceId              string                     `json:"sourceId"`
 	}
 	var enc Order
 	enc.Protocol = o.Protocol
@@ -68,6 +70,8 @@ func (o Order) MarshalJSON() ([]byte, error) {
 	enc.PowNonce = o.PowNonce
 	enc.Side = o.Side
 	enc.OrderType = o.OrderType
+	enc.P2PSide = o.P2PSide
+	enc.SourceId = o.SourceId
 	return json.Marshal(&enc)
 }
 
@@ -99,6 +103,8 @@ func (o *Order) UnmarshalJSON(input []byte) error {
 		PowNonce              *uint64                     `json:"powNonce"`
 		Side                  *string                     `json:"side"`
 		OrderType             *string                     `json:"orderType"`
+		P2PSide               *string                     `json:"p2pSide"`
+		SourceId              *string                     `json:"sourceId"`
 	}
 	var dec Order
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -194,6 +200,12 @@ func (o *Order) UnmarshalJSON(input []byte) error {
 	}
 	if dec.OrderType != nil {
 		o.OrderType = *dec.OrderType
+	}
+	if dec.P2PSide != nil {
+		o.P2PSide = *dec.P2PSide
+	}
+	if dec.SourceId != nil {
+		o.SourceId = *dec.SourceId
 	}
 	return nil
 }

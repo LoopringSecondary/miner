@@ -32,4 +32,5 @@ type RdsService interface {
 	GetFilledOrderByRinghash(ringhash common.Hash) ([]*FilledOrder, error)
 	UpdateRingSubmitInfoErrById(id int, err error) error
 	GetPendingTx(createTime int64) (ringForSubmits []RingSubmitInfo, err error)
+	GetSubmitterNonce(submitter string) (uint64,error)
 }

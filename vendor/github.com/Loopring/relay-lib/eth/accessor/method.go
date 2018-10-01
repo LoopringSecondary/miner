@@ -240,6 +240,7 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 		}
 	}
 	if nil == nonce {
+		accessor.resetAddressNonce(sender)
 		nonce = accessor.addressCurrentNonce(sender)
 	}
 	log.Infof("nonce:%s, gas:%s, gasPrice:%s", nonce.String(), gas.String(), gasPrice.String())
@@ -275,7 +276,7 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 			return "", nil, err
 		}
 	}
-	accessor.addressNextNonce(sender)
+	//accessor.addressNextNonce(sender)
 	return txHash, afterSignTx, nil
 }
 

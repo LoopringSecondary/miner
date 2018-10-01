@@ -260,7 +260,11 @@ func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (comm
 		}
 
 		txHashStr := "0x"
-		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe, nil)
+		nonce,err2 := submitter.dbService.GetSubmitterNonce(evt.Miner.Hex())
+		if nil != err2 {
+			nonce = 0
+		}
+		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe, big.NewInt(int64(nonce)))
 		if nil != err {
 			log.Errorf("submitring hash:%s, err:%s", evt.Ringhash.Hex(), err.Error())
 			status = types.TX_STATUS_FAILED
@@ -533,7 +537,7 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 						status := types.TX_STATUS_PENDING
 						log.Infof("resubmit ring hash:%s ", info.RingHash)
 						gas := new(big.Int)
-						gas.SetString(info.ProtocolGas, 0)
+						gas.SetString("400000", 0)
 						gasPrice := submitter.evaluator.EstimateGasGasPrice()
 						//gasPrice.SetString(info.ProtocolGasPrice, 0)
 						txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),

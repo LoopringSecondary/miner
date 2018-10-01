@@ -300,3 +300,14 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoErrById(id int, err error) error {
 	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("id = ?", id)
 	return dbForUpdate.Update("err", err.Error()).Error
 }
+
+func (s *RdsServiceImpl) GetSubmitterNonce(submitter string) (uint64,error) {
+	nonce := []uint64{}
+	println(submitter)
+	err := s.Db.Model(&RingSubmitInfo{}).Where("miner=?", submitter).Pluck(" max(tx_nonce) ", &nonce).Error
+	if len(nonce) > 0 {
+		return nonce[0],err
+	} else {
+		return 0, err
+	}
+}

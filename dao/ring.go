@@ -240,14 +240,16 @@ func (s *RdsServiceImpl) GetRingForSubmitByHash(ringhash common.Hash) (ringForSu
 
 func (s *RdsServiceImpl) GetPendingTx(createTime int64) (ringForSubmits []RingSubmitInfo, err error) {
 	ringForSubmits = []RingSubmitInfo{}
-	minerBlockedNonce := []map[string]interface{}{}
+	minerBlockedNonces := []map[string]interface{}{}
 	if err = s.Db.Raw("select " +
 		"miner, " +
 		"max(tx_nonce) blockedNonce " +
 		" from lpr_ring_submit_infos " +
 		" where status = 2 " +
-		" group by miner ").Scan(&minerBlockedNonce).Error; nil == err {
-		for miner, nonce := range minerBlockedNonce {
+		" group by miner ").Scan(&minerBlockedNonces).Error; nil == err {
+		for _, minerBlockNonce := range minerBlockedNonces {
+			miner := minerBlockNonce["miner"]
+			nonce := minerBlockNonce["blockedNonce"]
 			var list []RingSubmitInfo
 			if err1 := s.Db.Where(" create_time > ? and status = ? and miner = ? and tx_nonce > ? ", createTime, 0, miner, nonce).Scan(&list).Error; nil == err1 {
 				if len(list) > 0 {

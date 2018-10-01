@@ -240,32 +240,42 @@ func (s *RdsServiceImpl) GetRingForSubmitByHash(ringhash common.Hash) (ringForSu
 
 func (s *RdsServiceImpl) GetPendingTx(createTime int64) (ringForSubmits []RingSubmitInfo, err error) {
 	ringForSubmits = []RingSubmitInfo{}
-	minerBlockedNonces := []map[string]interface{}{}
-	if err = s.Db.Raw("select " +
-		"miner, " +
-		"max(tx_nonce) blockedNonce " +
-		" from lpr_ring_submit_infos " +
-		" where status = 2 " +
-		" group by miner ").Scan(&minerBlockedNonces).Error; nil == err {
-		for _, minerBlockNonce := range minerBlockedNonces {
-			miner := minerBlockNonce["miner"]
-			nonce := minerBlockNonce["blockedNonce"]
-			var list []RingSubmitInfo
-			if err1 := s.Db.Model(&RingSubmitInfo{}).Where(" create_time > ? and status = ? and miner = ? and tx_nonce > ? ", createTime, 0, miner, nonce).Scan(&list).Error; nil == err1 {
-				if len(list) > 0 {
-					for _, info := range list {
-						ringForSubmits = append(ringForSubmits, info)
-					}
-				} else {
-					log.Debugf("can't get pendingtx of owner:%s, nonce:%d in submitringinfo", miner, nonce)
-				}
-			} else {
-				log.Errorf("error:%s", err1.Error())
-			}
-		}
-	} else {
+	//select infos.* from lpr_ring_submit_infos as infos
+	//	join
+	//	(select miner, max(tx_nonce) blockedNonce from lpr_ring_submit_infos  where status = 2 group by miner) as blockedNonces on blockedNonces.miner=infos.miner and status = 1
+	//		and infos.tx_nonce > blockedNonces.blockedNonce
+	if err := s.Db.Raw("select infos.* from lpr_ring_submit_infos as infos " +
+	" join " +
+	" (select miner, max(tx_nonce) blockedNonce from lpr_ring_submit_infos  where status = 2 group by miner) as blockedNonces on blockedNonces.miner=infos.miner and status = 1 " +
+	"	and infos.tx_nonce > blockedNonces.blockedNonce").Scan(&ringForSubmits).Error;nil != err {
 		log.Errorf("err:%s", err.Error())
 	}
+			//minerBlockedNonces := []map[string]interface{}{}
+	//if err = s.Db.Raw("select " +
+	//	"miner, " +
+	//	"max(tx_nonce) blockedNonce " +
+	//	" from lpr_ring_submit_infos " +
+	//	" where status = 2 " +
+	//	" group by miner ").Scan(&minerBlockedNonces).Error; nil == err {
+	//	for _, minerBlockNonce := range minerBlockedNonces {
+	//		miner := minerBlockNonce["miner"]
+	//		nonce := minerBlockNonce["blockedNonce"]
+	//		var list []RingSubmitInfo
+	//		if err1 := s.Db.Model(&RingSubmitInfo{}).Where(" create_time > ? and status = ? and miner = ? and tx_nonce > ? ", createTime, 0, miner, nonce).Scan(&list).Error; nil == err1 {
+	//			if len(list) > 0 {
+	//				for _, info := range list {
+	//					ringForSubmits = append(ringForSubmits, info)
+	//				}
+	//			} else {
+	//				log.Debugf("can't get pendingtx of owner:%s, nonce:%d in submitringinfo", miner, nonce)
+	//			}
+	//		} else {
+	//			log.Errorf("error:%s", err1.Error())
+	//		}
+	//	}
+	//} else {
+	//	log.Errorf("err:%s", err.Error())
+	//}
 	return
 }
 

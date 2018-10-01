@@ -23,7 +23,7 @@ import (
 	"github.com/Loopring/relay/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
-	"github.com/pkg/errors"
+	"errors"
 	"math/big"
 	"time"
 )
@@ -244,24 +244,28 @@ func (s *RdsServiceImpl) GetPendingTx(createTime int64) (ringForSubmits []RingSu
 		"miner":        "",
 		"blockedNonce": uint64(0),
 	}
-	s.Db.Raw("select " +
+	if err = s.Db.Raw("select " +
 		"miner, " +
 		"max(tx_nonce) blockedNonce" +
 		"from lpr_ring_submit_infos " +
 		" where status = 2" +
-		"group by miner").Scan(&minerBlockedNonce)
-	if len(minerBlockedNonce) > 0 {
+		"group by miner").Scan(&minerBlockedNonce).Error; nil == err {
 		for miner, nonce := range minerBlockedNonce {
 			var list []RingSubmitInfo
-			s.Db.Where("create_time > ? and status = ? and miner = ? and tx_nonce > ?", createTime, 0, miner, nonce).Scan(&list)
-			if len(list) > 0 {
-				for _, info := range list {
-					ringForSubmits = append(ringForSubmits, info)
+			if err1 := s.Db.Where("create_time > ? and status = ? and miner = ? and tx_nonce > ?", createTime, 0, miner, nonce).Scan(&list).Error; nil == err1 {
+				if len(list) > 0 {
+					for _, info := range list {
+						ringForSubmits = append(ringForSubmits, info)
+					}
+				} else {
+					log.Debugf("can't get pendingtx of owner:%s, nonce:%d in submitringinfo", miner, nonce)
 				}
 			} else {
-				log.Debugf("can't get pendingtx of owner:%s, nonce:%d in submitringinfo", miner, nonce)
+				log.Errorf("error:%s", err1.Error())
 			}
 		}
+	} else {
+		log.Errorf("err:%s", err.Error())
 	}
 	return
 }

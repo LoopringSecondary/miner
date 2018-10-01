@@ -365,7 +365,7 @@ func (e *Evaluator) getLegalCurrency(tokenAddress common.Address, amount *big.Ra
 
 func (e *Evaluator) EstimateGasGasPrice() *big.Int {
 	gasprice := gasprice_evaluator.EstimateGasPrice(e.minGasPrice, e.maxGasPrice)
-	return big.NewInt(int64(float64(gasprice.Uint64()) * float64(0.7)))
+	return big.NewInt(int64(float64(gasprice.Uint64()) * float64(0.8)))
 }
 
 func (e *Evaluator) evaluateReceived(ringState *types.Ring) {

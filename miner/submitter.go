@@ -397,6 +397,7 @@ func (submitter *RingSubmitter) submitResult(recordId int, txNonce uint64, ringh
 		RingIndex:    ringIndex,
 		BlockNumber:  blockNumber,
 		UsedGas:      usedGas,
+		TxNonce:txNonce,
 	}
 	if err := submitter.dbService.UpdateRingSubmitInfoResult(resultEvt); nil != err {
 		log.Errorf("err:%s", err.Error())

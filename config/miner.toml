@@ -51,6 +51,7 @@ title = "miner"
     rate_ratio_cvs_threshold = 100000
     subsidy = 0.0
     walletSplit = 0.8
+    gasPriceRate = 0.7
     minGasLimit = 1000000000
     maxGasLimit = 100000000000
     feeReceipt = "0x750aD4351bB728ceC7d639A9511F9D6488f1E259"

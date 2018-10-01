@@ -18,7 +18,16 @@
 
 package miner_test
 
-import ()
+import (
+	"testing"
+	"math/big"
+)
+
+func TestNewMiner(t *testing.T) {
+	i := big.NewInt(111111)
+	s := big.NewInt(int64(float64(i.Uint64()) * float64(0.8)))
+	println(s.String())
+}
 
 //func loadConfig() *config.GlobalConfig {
 //	path := strings.TrimSuffix(os.Getenv("GOPATH"), "/") + "/src/github.com/Loopring/relay/config/relay.toml"

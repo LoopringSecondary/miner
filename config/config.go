@@ -139,6 +139,7 @@ type MinerOptions struct {
 	MinGasLimit           int64
 	MaxGasLimit           int64
 	FeeReceipt            string
+	GasPriceRate	float64
 }
 
 func Validator(cv reflect.Value) (bool, error) {

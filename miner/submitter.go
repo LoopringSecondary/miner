@@ -534,35 +534,39 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 				createTime := time.Now().Unix() - 10*60
 				if pendingInfos, err := submitter.dbService.GetPendingTx(createTime); nil == err {
 					for _, info := range pendingInfos {
-						//status := types.TX_STATUS_PENDING
-						gasPrice,gas := submitter.evaluator.EstimateGasPrice(int(info.OrdersCount))
-						//gasPrice.SetString(info.ProtocolGasPrice, 0)
-						txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
-							common.HexToAddress(info.ProtocolAddress),
-							gas,
-							gasPrice,
-							nil,
-							common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)))
-						log.Infof("resubmit ring hash:%s, preHash:%s txhash:%s - %s", info.RingHash, info.ProtocolTxHash, txHashStr, tx.Hash().Hex(), )
-						daoInfo := &dao.RingSubmitInfo{}
-						daoInfo.RingHash = info.RingHash
-						daoInfo.UniqueId = info.UniqueId
-						daoInfo.ProtocolAddress = info.ProtocolAddress
-						daoInfo.OrdersCount = info.OrdersCount
-						daoInfo.ProtocolData = info.ProtocolData
-						daoInfo.ProtocolGas = gas.String()
-						daoInfo.ProtocolUsedGas = "0"
-						daoInfo.ProtocolGasPrice = gasPrice.String()
-						daoInfo.Miner = info.Miner
-						daoInfo.TxNonce = tx.Nonce()
-						daoInfo.Status = 1
-						daoInfo.ProtocolTxHash = tx.Hash().Hex()
-						if nil != err {
-							daoInfo.Err = err.Error()
-						}
+						if hasReSubmitted,err3 := submitter.dbService.HasReSubmited(createTime, info.Miner, info.TxNonce);nil == err3 && !hasReSubmitted {
+							//status := types.TX_STATUS_PENDING
+							gasPrice,gas := submitter.evaluator.EstimateGasPrice(int(info.OrdersCount))
+							//gasPrice.SetString(info.ProtocolGasPrice, 0)
+							txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
+								common.HexToAddress(info.ProtocolAddress),
+								gas,
+								gasPrice,
+								nil,
+								common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)))
+							if nil == err {
+								log.Infof("resubmit ring hash:%s, preHash:%s txhash:%s - %s", info.RingHash, info.ProtocolTxHash, txHashStr, tx.Hash().Hex(), )
+								daoInfo := &dao.RingSubmitInfo{}
+								daoInfo.RingHash = info.RingHash
+								daoInfo.UniqueId = info.UniqueId
+								daoInfo.ProtocolAddress = info.ProtocolAddress
+								daoInfo.OrdersCount = info.OrdersCount
+								daoInfo.ProtocolData = info.ProtocolData
+								daoInfo.ProtocolGas = gas.String()
+								daoInfo.ProtocolUsedGas = "0"
+								daoInfo.ProtocolGasPrice = gasPrice.String()
+								daoInfo.Miner = info.Miner
+								daoInfo.TxNonce = tx.Nonce()
+								daoInfo.Status = 1
+								daoInfo.ProtocolTxHash = tx.Hash().Hex()
+								if nil != err {
+									daoInfo.Err = err.Error()
+								}
 
-						if err := submitter.dbService.Add(daoInfo); nil != err {
-							log.Errorf("insert new ring err:%s", err.Error())
+								if err := submitter.dbService.Add(daoInfo); nil != err {
+									log.Errorf("insert new ring err:%s", err.Error())
+								}
+							}
 						}
 					}
 				}

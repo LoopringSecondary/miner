@@ -238,6 +238,12 @@ func (s *RdsServiceImpl) GetRingForSubmitByHash(ringhash common.Hash) (ringForSu
 	return
 }
 
+func (s *RdsServiceImpl) HasReSubmited(createTime int64, miner string, txNonce uint64) (bool, error) {
+	t := big.NewInt(createTime)
+	count := 0
+	err := s.Db.Model(&RingSubmitInfo{}).Where("UNIX_TIMESTAMP(create_time) < ? and miner = ? and txNonce = ?", t.String(), miner, txNonce).Count(&count).Error
+	return (count>0),err
+}
 func (s *RdsServiceImpl) GetPendingTx(createTime int64) (ringForSubmits []RingSubmitInfo, err error) {
 	ringForSubmits = []RingSubmitInfo{}
 	t := big.NewInt(createTime)

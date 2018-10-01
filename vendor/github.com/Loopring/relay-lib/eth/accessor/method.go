@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"math/big"
 	"time"
+	"strings"
 )
 
 func (accessor *ethNodeAccessor) RetryCall(routeParam string, retry int, result interface{}, method string, args ...interface{}) error {
@@ -239,9 +240,11 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 			}
 		}
 	}
+	nonceByEth := big.NewInt(0)
 	if nil == nonce {
 		accessor.resetAddressNonce(sender)
-		nonce = accessor.addressCurrentNonce(sender)
+		nonceByEth = accessor.addressCurrentNonce(sender)
+		nonce = nonceByEth
 	}
 	log.Infof("nonce:%s, gas:%s, gasPrice:%s", nonce.String(), gas.String(), gasPrice.String())
 	if value == nil {
@@ -262,18 +265,19 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 		err         error
 	)
 	if afterSignTx, err = accessor.SignAndSendTransaction(&txHash, sender, transaction); nil != err {
-		//if err.Error() == "nonce too low" {
-		accessor.resetAddressNonce(sender)
-		nonce = accessor.addressCurrentNonce(sender)
-		transaction = ethTypes.NewTransaction(nonce.Uint64(),
-			common.HexToAddress(to.Hex()),
-			value,
-			gas.Uint64(),
-			gasPrice,
-			callData)
-		if afterSignTx, err = accessor.SignAndSendTransaction(&txHash, sender, transaction); nil != err {
-			log.Errorf("send raw transaction err:%s, manual check it please.", err.Error())
-			return "", nil, err
+		if strings.Contains(err.Error(), "nonce too low") {
+			accessor.resetAddressNonce(sender)
+			nonce = accessor.addressCurrentNonce(sender)
+			transaction = ethTypes.NewTransaction(nonce.Uint64(),
+				common.HexToAddress(to.Hex()),
+				value,
+				gas.Uint64(),
+				gasPrice,
+				callData)
+			if afterSignTx, err = accessor.SignAndSendTransaction(&txHash, sender, transaction); nil != err {
+				log.Errorf("send raw transaction err:%s, manual check it please.", err.Error())
+				return "", nil, err
+			}
 		}
 	}
 	//accessor.addressNextNonce(sender)

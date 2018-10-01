@@ -20,12 +20,12 @@ package dao
 
 import (
 	"github.com/Loopring/relay-lib/types"
-	"github.com/Loopring/relay/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"errors"
 	"math/big"
 	"time"
+	"github.com/Loopring/relay-lib/log"
 )
 
 type FilledOrder struct {

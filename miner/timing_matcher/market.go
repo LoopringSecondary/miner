@@ -332,7 +332,7 @@ func (market *Market) GenerateCandidateRing(orders ...*types.OrderState) (*Candi
 	//miner will received nothing, if miner set FeeSelection=1 and he doesn't have enough lrc
 	for _, order := range orders {
 		if filledOrder, err := market.generateFilledOrder(order); nil != err {
-			log.Errorf("err:%s", err.Error())
+			log.Debugf("err:%s", err.Error())
 			return nil, err
 		} else {
 			filledOrders = append(filledOrders, filledOrder)

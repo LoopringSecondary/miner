@@ -127,7 +127,7 @@ func (market *Market) match() {
 			//todo:move a2BOrder.RawOrder.Owner != b2AOrder.RawOrder.Owner after contract fix bug
 			if miner.PriceValid(a2BOrder, b2AOrder) && a2BOrder.RawOrder.Owner != b2AOrder.RawOrder.Owner {
 				if candidateRing, err := market.GenerateCandidateRing(a2BOrder, b2AOrder); nil != err {
-					log.Errorf("err:%s", err.Error())
+					log.Debugf("err:%s", err.Error())
 					continue
 				} else {
 					if candidateRing.received.Sign() > 0 {

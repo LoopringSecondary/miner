@@ -459,6 +459,7 @@ func (submitter *RingSubmitter) stop() {
 
 const (
 	ZKLOCK_SUBMITTER_MINER_ADDR_PRE = "zklock_submitter_miner_addr_"
+	ZKLOCK_MONITOR_SUBMITINFO = "zklock_monitor_submitinfo"
 )
 
 func (submitter *RingSubmitter) listenNewRings() {
@@ -515,22 +516,35 @@ func (submitter *RingSubmitter) selectSenderAddress() (common.Address, error) {
 func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 	stopChan := make(chan bool)
 	go func() {
+		zklock.TryLock(ZKLOCK_MONITOR_SUBMITINFO)
+		submitter.stopFuncs = append(submitter.stopFuncs, func() {
+			zklock.ReleaseLock(ZKLOCK_MONITOR_SUBMITINFO)
+		})
 		for {
 			select {
 			case <-time.After(10 * time.Second):
-				createTime := time.Now().Unix() - 10*60
+				createTime := time.Now().Unix() - 5*60
 				if pendingInfos,err := submitter.dbService.GetPendingTx(createTime);nil == err {
 					for _,info := range pendingInfos {
+						status := types.TX_STATUS_PENDING
+						log.Infof("resubmit ring hash:%s ", info.RingHash)
 						gas := new(big.Int)
 						gas.SetString(info.ProtocolGas, 0)
 						gasPrice := new(big.Int)
 						gasPrice.SetString(info.ProtocolGasPrice, 0)
-						accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
+						txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
 							common.HexToAddress(info.ProtocolAddress),
 							gas,
 							gasPrice,
 							nil,
 							 common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)))
+						if nil == err {
+							submitter.submitResult(info.ID, tx.Nonce(),
+								common.HexToHash(info.RingHash),
+								common.HexToHash(info.UniqueId),
+								common.HexToHash(txHashStr),
+								status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
+						}
 					}
 				}
 

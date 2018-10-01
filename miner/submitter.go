@@ -226,11 +226,12 @@ func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 		txhash, status, tx, err := submitter.submitRing(evt)
 		if nil != err {
 			log.Errorf("err:%s", err.Error())
+		} else {
+			if types.TX_STATUS_PENDING == status {
+				submitter.sendPendingTransaction(tx, evt.Miner)
+			}
+			submitter.submitResult(evt.SubmitInfoId,tx.Nonce(), evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
 		}
-		if types.TX_STATUS_PENDING == status {
-			submitter.sendPendingTransaction(tx, evt.Miner)
-		}
-		submitter.submitResult(evt.SubmitInfoId,tx.Nonce(), evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
 	} else {
 		log.Errorf("receive submitInfo ,but type not match")
 		return errors.New("type not match")

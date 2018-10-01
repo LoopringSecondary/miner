@@ -367,8 +367,18 @@ func (market *Market) generateFilledOrder(order *types.OrderState) (*types.Fille
 		return nil, fmt.Errorf("owner:%s token:%s balance or allowance is zero", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
 	}
 	//todo:
-	if market.isDustValue(order.RawOrder.TokenS, tokenSBalance) {
-		return nil, fmt.Errorf("owner:%s token:%s balance or allowance is not enough", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
+	if market.matcher.marketCapProvider.IsSupport(order.RawOrder.TokenS) {
+		if market.isDustValue(order.RawOrder.TokenS, tokenSBalance) {
+			return nil, fmt.Errorf("owner:%s token:%s balance or allowance is not enough", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
+		}
+	} else {
+		bPrice := new(big.Rat)
+		bPrice.Quo(new(big.Rat).SetInt(order.RawOrder.AmountB), new(big.Rat).SetInt(order.RawOrder.AmountS))
+		amountB := new(big.Rat)
+		amountB.Mul(tokenSBalance, bPrice)
+		if market.isDustValue(order.RawOrder.TokenB, amountB) {
+			return nil, fmt.Errorf("owner:%s token:%s balance or allowance is not enough", order.RawOrder.Owner.Hex(), order.RawOrder.TokenS.Hex())
+		}
 	}
 	return types.ConvertOrderStateToFilledOrder(*order, lrcTokenBalance, tokenSBalance, market.protocolImpl.LrcTokenAddress), nil
 }

@@ -364,18 +364,19 @@ func (e *Evaluator) getLegalCurrency(tokenAddress common.Address, amount *big.Ra
 	return e.marketCapProvider.LegalCurrencyValue(tokenAddress, amount)
 }
 
-func (e *Evaluator) EstimateGasGasPrice() *big.Int {
-	gasprice := gasprice_evaluator.EstimateGasPrice(e.minGasPrice, e.maxGasPrice)
-	return gasprice
+func (e *Evaluator) EstimateGasPrice(orderLen int) (gasprice,gas *big.Int) {
+	gasprice = gasprice_evaluator.EstimateGasPrice(e.minGasPrice, e.maxGasPrice)
+	gas = e.gasUsedWithLength[orderLen]
+	return gasprice, gas
 }
 
 func (e *Evaluator) evaluateReceived(ringState *types.Ring) {
 	ringState.Received = big.NewRat(int64(0), int64(1))
-	gasprice := e.EstimateGasGasPrice()
+	gasprice,gas := e.EstimateGasPrice(len(ringState.Orders))
 	ringState.GasPrice = big.NewInt(int64(float64(gasprice.Uint64()) * e.gasPriceRate))
 	//log.Debugf("len(ringState.Orders):%d", len(ringState.Orders))
 	ringState.Gas = new(big.Int)
-	ringState.Gas.Set(e.gasUsedWithLength[len(ringState.Orders)])
+	ringState.Gas.Set(gas)
 	protocolCost := new(big.Int)
 	protocolCost.Mul(ringState.Gas, ringState.GasPrice)
 

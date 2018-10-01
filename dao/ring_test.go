@@ -24,7 +24,8 @@ import (
 	"strings"
 	"testing"
 	"github.com/Loopring/miner/dao"
-	)
+	"time"
+)
 
 func loadConfig() *config.GlobalConfig {
 	path := strings.TrimSuffix("/Users/yuhongyu/Desktop/service/go/src/github.com/Loopring/miner/config/miner.toml", "")
@@ -37,20 +38,20 @@ func loadConfig() *config.GlobalConfig {
 func TestRdsServiceImpl_GetPendingTx(t *testing.T) {
 	cfg := loadConfig()
 	s := dao.NewRdsService(cfg.Mysql)
-	//createTime := time.Now().Unix() - 3600
-	//if infos,err := s.GetPendingTx(createTime);nil !=err {
-	//	println(err.Error())
-	//} else {
-	//	for _,info := range infos {
-	//		println(info.RingHash)
-	//	}
-	//}
-
-	if i,err := s.GetSubmitterNonce("0x5552dcfba48c94544beaaf26470df9898e050ac2");nil != err {
+	createTime := time.Now().Unix() - 3600
+	if infos,err := s.GetPendingTx(createTime);nil !=err {
 		println(err.Error())
 	} else {
-		println(i)
+		for _,info := range infos {
+			println(info.RingHash)
+		}
 	}
+
+	//if i,err := s.GetSubmitterNonce("0x5552dcfba48c94544beaaf26470df9898e050ac2");nil != err {
+	//	println(err.Error())
+	//} else {
+	//	println(i)
+	//}
 
 
 }

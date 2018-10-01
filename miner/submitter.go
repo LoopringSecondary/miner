@@ -536,9 +536,7 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 					for _, info := range pendingInfos {
 						status := types.TX_STATUS_PENDING
 						log.Infof("resubmit ring hash:%s ", info.RingHash)
-						gas := new(big.Int)
-						gas.SetString("400000", 0)
-						gasPrice := submitter.evaluator.EstimateGasGasPrice()
+						gasPrice,gas := submitter.evaluator.EstimateGasPrice(int(info.OrdersCount))
 						//gasPrice.SetString(info.ProtocolGasPrice, 0)
 						txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
 							common.HexToAddress(info.ProtocolAddress),

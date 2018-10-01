@@ -551,8 +551,8 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 						daoInfo.OrdersCount = info.OrdersCount
 						daoInfo.ProtocolData = info.ProtocolData
 						daoInfo.ProtocolGas = gas.String()
-						daoInfo.ProtocolUsedGas = gasPrice.String()
-						daoInfo.ProtocolGasPrice = "0"
+						daoInfo.ProtocolUsedGas = "0"
+						daoInfo.ProtocolGasPrice = gasPrice.String()
 						daoInfo.Miner = info.Miner
 						daoInfo.TxNonce = tx.Nonce()
 						daoInfo.Status = 1

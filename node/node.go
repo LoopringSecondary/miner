@@ -117,11 +117,11 @@ func (n *Node) registerDataSource() {
 }
 
 func (n *Node) registerMiner() {
-	submitter, err := miner.NewSubmitter(n.globalConfig.Miner, n.rdsService, n.globalConfig.Kafka.Brokers)
+	evaluator := miner.NewEvaluator(n.marketCapProvider, n.globalConfig.Miner)
+	submitter, err := miner.NewSubmitter(n.globalConfig.Miner, evaluator, n.rdsService, n.globalConfig.Kafka.Brokers)
 	if nil != err {
 		log.Fatalf("failed to init submitter, error:%s", err.Error())
 	}
-	evaluator := miner.NewEvaluator(n.marketCapProvider, n.globalConfig.Miner)
 	matcher := timing_matcher.NewTimingMatcher(n.globalConfig.Miner.TimingMatcher, submitter, evaluator, n.rdsService, n.marketCapProvider, n.globalConfig.Kafka)
 	evaluator.SetMatcher(matcher)
 	n.miner = miner.NewMiner(submitter, matcher, evaluator, n.marketCapProvider)

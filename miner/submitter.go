@@ -59,6 +59,8 @@ type RingSubmitter struct {
 
 	kafkaConsumer *kafka.ConsumerRegister
 
+	evaluator *Evaluator
+
 	stopFuncs []func()
 }
 
@@ -71,8 +73,9 @@ func getKafkaGroup() string {
 	return "submitter_"
 }
 
-func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl, brokers []string) (*RingSubmitter, error) {
+func NewSubmitter(options config.MinerOptions, evaluator *Evaluator, dbService dao.RdsServiceImpl, brokers []string) (*RingSubmitter, error) {
 	submitter := &RingSubmitter{}
+	submitter.evaluator = evaluator
 	submitter.maxGasLimit = big.NewInt(options.MaxGasLimit)
 	submitter.minGasLimit = big.NewInt(options.MinGasLimit)
 	if common.IsHexAddress(options.FeeReceipt) {
@@ -230,7 +233,7 @@ func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 			if types.TX_STATUS_PENDING == status {
 				submitter.sendPendingTransaction(tx, evt.Miner)
 			}
-			submitter.submitResult(evt.SubmitInfoId,tx.Nonce(), evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
+			submitter.submitResult(evt.SubmitInfoId, tx.Nonce(), evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
 		}
 	} else {
 		log.Errorf("receive submitInfo ,but type not match")
@@ -376,7 +379,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 	})
 }
 
-func (submitter *RingSubmitter) submitResult(recordId int,txNonce uint64, ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
+func (submitter *RingSubmitter) submitResult(recordId int, txNonce uint64, ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
 	if nil == err {
 		err = errors.New("")
 	}
@@ -390,7 +393,7 @@ func (submitter *RingSubmitter) submitResult(recordId int,txNonce uint64, ringha
 		RingIndex:    ringIndex,
 		BlockNumber:  blockNumber,
 		UsedGas:      usedGas,
-		TxNonce:txNonce,
+		TxNonce:      txNonce,
 	}
 	if err := submitter.dbService.UpdateRingSubmitInfoResult(resultEvt); nil != err {
 		log.Errorf("err:%s", err.Error())
@@ -460,7 +463,7 @@ func (submitter *RingSubmitter) stop() {
 
 const (
 	ZKLOCK_SUBMITTER_MINER_ADDR_PRE = "zklock_submitter_miner_addr_"
-	ZKLOCK_MONITOR_SUBMITINFO = "zklock_monitor_submitinfo"
+	ZKLOCK_MONITOR_SUBMITINFO       = "zklock_monitor_submitinfo"
 )
 
 func (submitter *RingSubmitter) listenNewRings() {
@@ -523,22 +526,22 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 		})
 		for {
 			select {
-			case <-time.After(10 * time.Second):
-				createTime := time.Now().Unix() - 5*60
-				if pendingInfos,err := submitter.dbService.GetPendingTx(createTime);nil == err {
-					for _,info := range pendingInfos {
+			case <-time.After(20 * time.Second):
+				createTime := time.Now().Unix() - 10*60
+				if pendingInfos, err := submitter.dbService.GetPendingTx(createTime); nil == err {
+					for _, info := range pendingInfos {
 						status := types.TX_STATUS_PENDING
 						log.Infof("resubmit ring hash:%s ", info.RingHash)
 						gas := new(big.Int)
 						gas.SetString(info.ProtocolGas, 0)
-						gasPrice := new(big.Int)
-						gasPrice.SetString(info.ProtocolGasPrice, 0)
+						gasPrice := submitter.evaluator.EstimateGasGasPrice()
+						//gasPrice.SetString(info.ProtocolGasPrice, 0)
 						txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
 							common.HexToAddress(info.ProtocolAddress),
 							gas,
 							gasPrice,
 							nil,
-							 common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)))
+							common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)))
 						if nil == err {
 							submitter.submitResult(info.ID, tx.Nonce(),
 								common.HexToHash(info.RingHash),

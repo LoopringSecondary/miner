@@ -1,5 +1,4 @@
 /*
-
   Copyright 2017 Loopring Project Ltd (Loopring Foundation).
 
   Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,12 +18,6 @@
 package marketcap
 
 import (
-	"github.com/Loopring/relay-lib/zklock"
-	"io/ioutil"
-	"math/big"
-	"strings"
-	"time"
-
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,14 +27,21 @@ import (
 	util "github.com/Loopring/relay-lib/marketutil"
 	"github.com/Loopring/relay-lib/sns"
 	"github.com/Loopring/relay-lib/types"
+	"github.com/Loopring/relay-lib/zklock"
 	"github.com/ethereum/go-ethereum/common"
+	"io/ioutil"
+	"math/big"
 	"net/http"
+	"strings"
+	"time"
 )
 
 const (
 	CACHEKEY_COIN_MARKETCAP  = "coin_marketcap_"
 	ZKNAME_COIN_MARKETCAP    = "coin_marketcap_"
 	HEARTBEAT_COIN_MARKETCAP = "coin_marketcap"
+	CUSTOM_TOKENS_MARKETCAP  = "custom_tokens_marketcap_"
+	allCustomTokens          = "ALLCT"
 )
 
 type MarketCap struct {
@@ -56,7 +56,7 @@ type MarketCap struct {
 func (cap *MarketCap) UnmarshalJSON(input []byte) error {
 	type Cap struct {
 		Price            float64 `json:"price"`
-		Volume24H        float64 `json:"24h_volume"`
+		Volume24H        float64 `json:"volume_24h"`
 		MarketCap        float64 `json:"market_cap"`
 		PercentChange1H  float64 `json:"percent_change_1h"`
 		PercentChange24H float64 `json:"percent_change_24h"`
@@ -79,7 +79,7 @@ func (cap *MarketCap) UnmarshalJSON(input []byte) error {
 func (cap *MarketCap) MarshalJSON() ([]byte, error) {
 	type Cap struct {
 		Price            float64 `json:"price"`
-		Volume24H        float64 `json:"24h_volume"`
+		Volume24H        float64 `json:"volume_24h"`
 		MarketCap        float64 `json:"market_cap"`
 		PercentChange1H  float64 `json:"percent_change_1h"`
 		PercentChange24H float64 `json:"percent_change_24h"`
@@ -131,16 +131,17 @@ func (tokens icoTokens) contains(addr common.Address) bool {
 }
 
 type CapProvider_CoinMarketCap struct {
-	baseUrl         string
-	tokenMarketCaps map[common.Address]*CoinMarketCap
-	icoTokens       icoTokens
+	baseUrl          string
+	tokenMarketCaps  map[common.Address]*CoinMarketCap
+	icoTokens        icoTokens
 	notSupportTokens map[common.Address]bool
 	//icoTokens	noSupportTokens
-	slugToAddress   map[string]common.Address
-	currency        string
-	duration        int
-	dustValue       *big.Rat
-	stopFuncs       []func()
+	slugToAddress map[string]common.Address
+	currency      string
+	duration      int
+	dustValue     *big.Rat
+	stopFuncs     []func()
+	syncTicker    chan func() error
 }
 
 func (p *CapProvider_CoinMarketCap) LegalCurrencyValue(tokenAddress common.Address, amount *big.Rat) (*big.Rat, error) {
@@ -153,7 +154,7 @@ func (p *CapProvider_CoinMarketCap) LegalCurrencyValueOfEth(amount *big.Rat) (*b
 }
 
 func (p *CapProvider_CoinMarketCap) LegalCurrencyValueByCurrency(tokenAddress common.Address, amount *big.Rat, currencyStr string) (*big.Rat, error) {
-	if _,exists := p.notSupportTokens[tokenAddress]; exists {
+	if _, exists := p.notSupportTokens[tokenAddress]; exists {
 		return big.NewRat(int64(0), int64(1)), nil
 	} else if c, exists := p.tokenMarketCaps[tokenAddress]; !exists {
 		return nil, errors.New("not found tokenCap:" + tokenAddress.Hex())
@@ -195,7 +196,7 @@ func (p *CapProvider_CoinMarketCap) getMarketCapFromRedis(websiteSlug string, cu
 }
 
 func (p *CapProvider_CoinMarketCap) GetMarketCapByCurrency(tokenAddress common.Address, currencyStr string) (*big.Rat, error) {
-	if _,exists := p.notSupportTokens[tokenAddress]; exists {
+	if _, exists := p.notSupportTokens[tokenAddress]; exists {
 		return big.NewRat(int64(0), int64(1)), nil
 	} else if c, exists := p.tokenMarketCaps[tokenAddress]; exists {
 		var v *big.Rat
@@ -262,6 +263,7 @@ func (p *CapProvider_CoinMarketCap) Start() {
 		}
 	}()
 
+	p.startSync()
 	go p.syncMarketCapFromAPIWithZk()
 }
 
@@ -271,6 +273,14 @@ func (p *CapProvider_CoinMarketCap) zklockName() string {
 
 func (p *CapProvider_CoinMarketCap) heartBeatName() string {
 	return HEARTBEAT_COIN_MARKETCAP + p.currency
+}
+
+func (p *CapProvider_CoinMarketCap) customTokensCacheKey(currency string) string {
+	if "" != currency {
+		return CUSTOM_TOKENS_MARKETCAP + currency
+	} else {
+		return CUSTOM_TOKENS_MARKETCAP + p.currency
+	}
 }
 
 func (p *CapProvider_CoinMarketCap) cacheKey(websiteSlug string, currency string) string {
@@ -298,7 +308,10 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromAPIWithZk() {
 			select {
 			case <-time.After(time.Duration(p.duration) * time.Minute):
 				log.Debugf("sync marketcap(key:%s) from api...", p.zklockName())
-				p.syncMarketCapFromAPI()
+				p.AddSyncFunc(
+					func() error {
+						return p.syncMarketCapFromAPI()
+					})
 				if err := cloudwatch.PutHeartBeatMetric(p.heartBeatName()); nil != err {
 					log.Errorf("err:%s", err.Error())
 				}
@@ -318,6 +331,7 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromAPI() error {
 	numCryptocurrencies := 105
 	start := 0
 	limit := 100
+	customTokens, _ := util.GetCustomTokensFromRedis(allCustomTokens)
 	for numCryptocurrencies > 0 {
 		url := fmt.Sprintf(p.baseUrl, p.currency, start, limit)
 		println(url)
@@ -342,8 +356,8 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromAPI() error {
 				log.Errorf("err1:%s", err1.Error())
 				return err1
 			} else {
-
 				if "" == result.Metadata.Error {
+					customTokensQuote := [][]byte{}
 					for _, cap1 := range result.Data {
 						if data, err2 := json.Marshal(cap1); nil != err2 {
 							log.Errorf("err:%s", err2.Error())
@@ -354,8 +368,22 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromAPI() error {
 								log.Errorf("err:%s", err.Error())
 								return err
 							}
+							//loading customer tokens quote
+							if _, exists := customTokens[cap1.Symbol]; exists {
+								customTokensQuote = append(customTokensQuote, []byte(cap1.Symbol), data)
+							}
 						}
 					}
+
+					//batch set customer's tokens quoteData
+					if len(customTokensQuote) > 0 {
+						err := cache.HMSet(p.customTokensCacheKey(p.currency), int64(43200), customTokensQuote...)
+						if nil != err {
+							log.Errorf("get custom tokens priceQuto err:%s", err.Error())
+							return err
+						}
+					}
+
 					start = start + len(result.Data)
 					numCryptocurrencies = result.Metadata.NumCryptocurrencies - start
 				} else {
@@ -372,28 +400,29 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromAPI() error {
 func (p *CapProvider_CoinMarketCap) syncMarketCapFromRedis() error {
 	//todo:use zk to keep
 	//tokenMarketCaps := make(map[common.Address]*CoinMarketCap)
-	syncedFromApi := false
+	//syncedFromApi := false
 	notSupportTokens := make(map[common.Address]bool)
 	for tokenAddr, c1 := range p.tokenMarketCaps {
 		if p.icoTokens.contains(tokenAddr) {
 			continue
 		}
 		data, err := cache.Get(p.cacheKey(c1.WebsiteSlug, p.currency))
-		if nil != err && !syncedFromApi {
-			if err1 := p.syncMarketCapFromAPI(); nil != err1 {
-				return err1
-			}
-			syncedFromApi = true
-			data, err = cache.Get(p.cacheKey(c1.WebsiteSlug, p.currency))
-		}
+		//if nil != err && !syncedFromApi {
+		//	if err1 := p.syncMarketCapFromAPI(); nil != err1 {
+		//		log.Errorf("can't sync marketcap, error :%s", err1.Error())
+		//		return err1
+		//	}
+		//	syncedFromApi = true
+		//	data, err = cache.Get(p.cacheKey(c1.WebsiteSlug, p.currency))
+		//}
 		if nil != err {
 			notSupportTokens[tokenAddr] = true
-			log.Errorf("can't get marketcap of token:%s", tokenAddr.Hex())
+			log.Warnf("can't get marketcap of token:%s", tokenAddr.Hex())
 		} else {
 			c := &CoinMarketCap{}
 			if err := json.Unmarshal(data, c); nil != err {
 				notSupportTokens[tokenAddr] = true
-				log.Errorf("get marketcap of token err:%s", err.Error())
+				log.Warnf("get marketcap of token err:%s", err.Error())
 			} else {
 				p.tokenMarketCaps[tokenAddr].Quotes = c.Quotes
 				p.tokenMarketCaps[tokenAddr].CirculatingSupply = c.CirculatingSupply
@@ -425,7 +454,7 @@ func (p *CapProvider_CoinMarketCap) syncMarketCapFromRedis() error {
 }
 
 func (p *CapProvider_CoinMarketCap) IsSupport(token common.Address) bool {
-	_,exists := p.notSupportTokens[token]
+	_, exists := p.notSupportTokens[token]
 	return !exists
 }
 
@@ -450,6 +479,7 @@ type MarketCapOptions struct {
 
 func NewMarketCapProvider(options *MarketCapOptions) *CapProvider_CoinMarketCap {
 	provider := &CapProvider_CoinMarketCap{}
+	provider.syncTicker = make(chan func() error, 100)
 	provider.baseUrl = options.BaseUrl
 	provider.currency = options.Currency
 	provider.tokenMarketCaps = make(map[common.Address]*CoinMarketCap)
@@ -522,8 +552,24 @@ func (p *CapProvider_CoinMarketCap) IsValueDusted(value *big.Rat) bool {
 	return p.dustValue.Cmp(value) > 0
 }
 
+func (p *CapProvider_CoinMarketCap) AddSyncFunc(f func() error) {
+	p.syncTicker <- f
+}
 
+func (p *CapProvider_CoinMarketCap) startSync() {
+	go func() {
+		for {
+			select {
+			case f := <-p.syncTicker:
+				startTime := time.Now().Unix() + 60
+				f()
+				endtime := time.Now().Unix()
+				t := startTime - endtime
+				if t > 0 {
+					time.Sleep(time.Duration(t) * time.Second)
+				}
 
-
-
-
+			}
+		}
+	}()
+}

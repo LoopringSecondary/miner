@@ -242,7 +242,7 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 	if nil == nonce {
 		nonce = accessor.addressCurrentNonce(sender)
 	}
-	log.Infof("nonce:%s, gas:%s", nonce.String(), gas.String())
+	log.Infof("nonce:%s, gas:%s, gasPrice:%s", nonce.String(), gas.String(), gasPrice.String())
 	if value == nil {
 		value = big.NewInt(0)
 	}

@@ -253,7 +253,7 @@ func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (comm
 	callData := common.FromHex(evt.ProtocolData)
 	var tx *ethTypes.Transaction
 	if nil == err {
-		lastTime := evt.ValidSinceTime
+		//lastTime := evt.ValidSinceTime
 		needPreExe := false
 		//if submitter.currentBlockTime > 0 && lastTime <= submitter.currentBlockTime {
 		//	needPreExe = true

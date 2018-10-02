@@ -253,11 +253,11 @@ func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (comm
 	callData := common.FromHex(evt.ProtocolData)
 	var tx *ethTypes.Transaction
 	if nil == err {
-		//lastTime := evt.ValidSinceTime
+		lastTime := evt.ValidSinceTime
 		needPreExe := false
-		//if submitter.currentBlockTime > 0 && lastTime <= submitter.currentBlockTime {
-		//	needPreExe = true
-		//}
+		if submitter.currentBlockTime > 0 && lastTime <= submitter.currentBlockTime {
+			needPreExe = true
+		}
 
 		txHashStr := "0x"
 		nonce,err2 := submitter.dbService.GetSubmitterNonce(evt.Miner.Hex())
@@ -530,10 +530,16 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 		})
 		for {
 			select {
-			case <-time.After(20 * time.Second):
+			case <-time.After(1 * time.Minute):
 				createTime := time.Now().Unix() - 10*60
+				resubmitedHashes := make(map[string]bool)
 				if pendingInfos, err := submitter.dbService.GetPendingTx(createTime); nil == err {
 					for _, info := range pendingInfos {
+						if _,ok := resubmitedHashes[strings.ToLower(info.RingHash)]; ok {
+							continue
+						} else {
+							resubmitedHashes[strings.ToLower(info.RingHash)] = true
+						}
 						if hasReSubmitted,err3 := submitter.dbService.HasReSubmited(createTime, info.Miner, info.TxNonce);nil == err3 && !hasReSubmitted {
 							//status := types.TX_STATUS_PENDING
 							gasPrice,gas := submitter.evaluator.EstimateGasPrice(int(info.OrdersCount))

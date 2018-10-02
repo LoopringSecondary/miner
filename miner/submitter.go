@@ -255,9 +255,9 @@ func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (comm
 	if nil == err {
 		lastTime := evt.ValidSinceTime
 		needPreExe := false
-		if submitter.currentBlockTime > 0 && lastTime <= submitter.currentBlockTime {
-			needPreExe = true
-		}
+		//if submitter.currentBlockTime > 0 && lastTime <= submitter.currentBlockTime {
+		//	needPreExe = true
+		//}
 
 		txHashStr := "0x"
 		nonce,err2 := submitter.dbService.GetSubmitterNonce(evt.Miner.Hex())
@@ -537,6 +537,11 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 						if hasReSubmitted,err3 := submitter.dbService.HasReSubmited(createTime, info.Miner, info.TxNonce);nil == err3 && !hasReSubmitted {
 							//status := types.TX_STATUS_PENDING
 							gasPrice,gas := submitter.evaluator.EstimateGasPrice(int(info.OrdersCount))
+							infoGasPrice := new(big.Int)
+							infoGasPrice.SetString(info.ProtocolGasPrice, 0)
+							if gasPrice.Cmp(infoGasPrice) <= 0 {
+								continue
+							}
 							//gasPrice.SetString(info.ProtocolGasPrice, 0)
 							txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
 								common.HexToAddress(info.ProtocolAddress),

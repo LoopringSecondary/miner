@@ -264,7 +264,7 @@ func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (comm
 		if nil != err2 {
 			nonce = 0
 		}
-		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe, big.NewInt(int64(nonce)))
+		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe, big.NewInt(int64(nonce)), false)
 		if nil != err {
 			log.Errorf("submitring hash:%s, err:%s", evt.Ringhash.Hex(), err.Error())
 			status = types.TX_STATUS_FAILED
@@ -554,9 +554,10 @@ func (submitter *RingSubmitter) monitorAndReSubmitRing() {
 								gas,
 								gasPrice,
 								nil,
-								common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)))
+								common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)), true)
 							if nil == err {
-								log.Infof("resubmit ring hash:%s, preHash:%s txhash:%s - %s", info.RingHash, info.ProtocolTxHash, txHashStr, tx.Hash().Hex(), )
+								log.Infof("resubmit ring hash:%s, preHash:%s txhash:%s - %s, old-nonce: %d, new-nonce:%d",
+									info.RingHash, info.ProtocolTxHash, txHashStr, tx.Hash().Hex(), info.TxNonce, tx.Nonce() )
 								daoInfo := &dao.RingSubmitInfo{}
 								daoInfo.RingHash = info.RingHash
 								daoInfo.UniqueId = info.UniqueId

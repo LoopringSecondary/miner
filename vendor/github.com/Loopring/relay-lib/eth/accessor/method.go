@@ -223,7 +223,9 @@ func (ethAccessor *ethNodeAccessor) SignAndSendTransaction(result interface{}, s
 	}
 }
 
-func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string, sender common.Address, to common.Address, gas, gasPrice, value *big.Int, callData []byte, needPreExe bool, nonce *big.Int) (string, *ethTypes.Transaction, error) {
+func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string,
+	sender common.Address, to common.Address, gas, gasPrice, value *big.Int, callData []byte,
+	needPreExe bool, nonce *big.Int,fixNonce bool) (string, *ethTypes.Transaction, error) {
 	if nil == gasPrice || gasPrice.Cmp(big.NewInt(0)) <= 0 {
 		return "", nil, errors.New("gasPrice must be setted.")
 	}
@@ -265,7 +267,8 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 		err         error
 	)
 	if afterSignTx, err = accessor.SignAndSendTransaction(&txHash, sender, transaction); nil != err {
-		if strings.Contains(err.Error(), "nonce too low") {
+		if !fixNonce && strings.Contains(err.Error(), "nonce too low") {
+			log.Infof("nonce too low resubmit nonce:%s,gas:%s, gasPrice:%s", nonce.String(), gas.String(), gasPrice.String())
 			accessor.resetAddressNonce(sender)
 			nonce = accessor.addressCurrentNonce(sender)
 			transaction = ethTypes.NewTransaction(nonce.Uint64(),
@@ -285,8 +288,8 @@ func (accessor *ethNodeAccessor) ContractSendTransactionByData(routeParam string
 }
 
 //gas, gasPrice can be set to nil
-func (accessor *ethNodeAccessor) ContractSendTransactionMethod(routeParam string, a *abi.ABI, contractAddress common.Address) func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, nonce *big.Int, args ...interface{}) (string, *ethTypes.Transaction, error) {
-	return func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, nonce *big.Int, args ...interface{}) (string, *ethTypes.Transaction, error) {
+func (accessor *ethNodeAccessor) ContractSendTransactionMethod(routeParam string, a *abi.ABI, contractAddress common.Address) func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, nonce *big.Int,fixNonce bool, args ...interface{}) (string, *ethTypes.Transaction, error) {
+	return func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, nonce *big.Int,fixNonce bool, args ...interface{}) (string, *ethTypes.Transaction, error) {
 		if callData, err := a.Pack(methodName, args...); nil != err {
 			return "", nil, err
 		} else {
@@ -297,7 +300,7 @@ func (accessor *ethNodeAccessor) ContractSendTransactionMethod(routeParam string
 			}
 			gas.Add(gas, big.NewInt(int64(1000)))
 			log.Infof("sender:%s, %s", sender.Hex(), gasPrice.String())
-			return accessor.ContractSendTransactionByData(routeParam, sender, contractAddress, gas, gasPrice, value, callData, false, nonce)
+			return accessor.ContractSendTransactionByData(routeParam, sender, contractAddress, gas, gasPrice, value, callData, false, nonce, fixNonce)
 		}
 	}
 }

@@ -41,17 +41,20 @@ type TokenPair struct {
 	TokenB common.Address
 }
 
-var MarketBaseOrder = map[string]uint8{"BAR": 5, "LRC": 10, "WETH": 20, "DAI": 30}
+var MarketBaseOrder = map[string]uint8{"BAR": 5, "LRC": 10, "WETH": 20, "USDT": 30, "TUSD": 40}
 
 type TokenStandard uint8
 
-func StringToFloat(token string, amount string) float64 {
+func StringToFloat(token string, amount string) (result float64, err error) {
 	rst, _ := new(big.Rat).SetString(amount)
-	ts, _ := AddressToToken(common.HexToAddress(token))
+	ts, err := AddressToToken(common.HexToAddress(token))
+	if err != nil {
+		return result, err
+	}
 	weiRat := new(big.Rat).SetInt64(ts.Decimals.Int64())
 	rst.Quo(rst, weiRat)
-	result, _ := rst.Float64()
-	return result
+	result, _ = rst.Float64()
+	return result, nil
 }
 
 var (
@@ -60,11 +63,13 @@ var (
 	SupportMarkets map[string]types.Token // token symbol to contract hex address
 	AllMarkets     []string
 	AllTokenPairs  []TokenPair
+	DisplayMarkets []types.Market
 	SymbolTokenMap map[common.Address]string
 )
 
 type MarketOptions struct {
 	TokenFile             string
+	MarketFile            string
 	OldVersionWethAddress string
 }
 
@@ -74,12 +79,16 @@ func StartRefreshCron(option *MarketOptions) {
 		log.Info("start market util refresh.....")
 		SupportTokens, SupportMarkets, AllTokens, AllMarkets, AllTokenPairs, SymbolTokenMap = getTokenAndMarketFromDB(option.TokenFile)
 	})
+	mktCron.AddFunc("1 0/10 * * * *", func() {
+		DisplayMarkets = getDisplayMarketsFromDB(option.MarketFile)
+	})
 	mktCron.Start()
 }
 
 type token struct {
 	Protocol string `json:"Protocol"`
 	Symbol   string `json:"Symbol"`
+	Name     string `json:"Name"`
 	Source   string `json:"Source"`
 	Deny     bool   `json:"Deny"`
 	Decimals int    `json:"Decimals"`
@@ -92,6 +101,7 @@ func (t *token) convert() types.Token {
 
 	dst.Protocol = common.HexToAddress(t.Protocol)
 	dst.Symbol = strings.ToUpper(t.Symbol)
+	dst.Name = strings.ToUpper(t.Name)
 	dst.Source = t.Source
 	dst.Deny = t.Deny
 	dst.Decimals = new(big.Int)
@@ -114,8 +124,8 @@ func getTokenAndMarketFromDB(tokenfile string) (
 	symbolTokenMap map[common.Address]string) {
 
 	supportTokens = make(map[string]types.Token)
-	allTokens = make(map[string]types.Token)
 	supportMarkets = make(map[string]types.Token)
+	allTokens = make(map[string]types.Token)
 	allMarkets = make([]string, 0)
 	allTokenPairs = make([]TokenPair, 0)
 	symbolTokenMap = make(map[common.Address]string)
@@ -189,15 +199,31 @@ func getTokenAndMarketFromDB(tokenfile string) (
 	return
 }
 
+func getDisplayMarketsFromDB(marketfile string) (displayMarkets []types.Market) {
+	fn, err := os.Open(marketfile)
+	if err != nil {
+		log.Fatalf("market util load markets failed:%s", err.Error())
+	}
+	bs, err := ioutil.ReadAll(fn)
+	if err != nil {
+		log.Fatalf("market util read markets json file failed:%s", err.Error())
+	}
+	if err := json.Unmarshal(bs, &displayMarkets); err != nil {
+		log.Fatalf("market util unmarshal tokens failed:%s", err.Error())
+	}
+	return
+}
+
 func Initialize(options *MarketOptions) {
 
 	SupportTokens = make(map[string]types.Token)
 	SupportMarkets = make(map[string]types.Token)
 	AllTokens = make(map[string]types.Token)
 	SymbolTokenMap = make(map[common.Address]string)
+	DisplayMarkets = make([]types.Market, 0)
 
 	SupportTokens, SupportMarkets, AllTokens, AllMarkets, AllTokenPairs, SymbolTokenMap = getTokenAndMarketFromDB(options.TokenFile)
-
+	DisplayMarkets = getDisplayMarketsFromDB(options.MarketFile)
 	// StartRefreshCron(rds)
 
 	//tokenRegisterWatcher := &eventemitter.Watcher{false, TokenRegister}
@@ -289,7 +315,7 @@ func UnWrap(market string) (s, b string) {
 
 func UnWrapToAddress(market string) (s, b common.Address) {
 	sa, sb := UnWrap(market)
-	return common.HexToAddress(sa), common.HexToAddress(sb)
+	return AliasToAddress(sa), AliasToAddress(sb)
 }
 
 func IsSupportedMarket(market string) bool {
@@ -304,6 +330,10 @@ func isSupportedToken(token string) bool {
 
 func AliasToAddress(t string) common.Address {
 	return AllTokens[t].Protocol
+}
+
+func AliasToSource(t string) string {
+	return AllTokens[t].Source
 }
 
 func AddressToAlias(t string) string {

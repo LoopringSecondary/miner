@@ -42,6 +42,7 @@ type Evaluator struct {
 	minGasPrice, maxGasPrice *big.Int
 	feeReceipt               common.Address
 
+	gasPriceRate float64
 	matcher Matcher
 }
 
@@ -263,7 +264,7 @@ func (e *Evaluator) computeFeeOfRingAndOrder(ringState *types.Ring) error {
 
 		lrcFee := new(big.Rat).SetInt(big.NewInt(int64(2)))
 		lrcFee.Mul(lrcFee, filledOrder.LegalLrcFee)
-		if lrcFee.Cmp(filledOrder.LegalFeeS) < 0 && feeReceiptLrcAvailableAmount.Cmp(filledOrder.LrcFee) > 0 {
+		if lrcFee.Sign() == 0 || (lrcFee.Cmp(filledOrder.LegalFeeS) < 0 && feeReceiptLrcAvailableAmount.Cmp(filledOrder.LrcFee) > 0) {
 			filledOrder.FeeSelection = 1
 			filledOrder.LegalFeeS.Sub(filledOrder.LegalFeeS, filledOrder.LegalLrcFee)
 			filledOrder.LrcReward = filledOrder.LegalLrcFee
@@ -363,12 +364,19 @@ func (e *Evaluator) getLegalCurrency(tokenAddress common.Address, amount *big.Ra
 	return e.marketCapProvider.LegalCurrencyValue(tokenAddress, amount)
 }
 
+func (e *Evaluator) EstimateGasPrice(orderLen int) (gasprice,gas *big.Int) {
+	gasprice = gasprice_evaluator.EstimateGasPrice(e.minGasPrice, e.maxGasPrice)
+	gas = e.gasUsedWithLength[orderLen]
+	return gasprice, gas
+}
+
 func (e *Evaluator) evaluateReceived(ringState *types.Ring) {
 	ringState.Received = big.NewRat(int64(0), int64(1))
-	ringState.GasPrice = gasprice_evaluator.EstimateGasPrice(e.minGasPrice, e.maxGasPrice)
+	gasprice,gas := e.EstimateGasPrice(len(ringState.Orders))
+	ringState.GasPrice = big.NewInt(int64(float64(gasprice.Uint64()) * e.gasPriceRate))
 	//log.Debugf("len(ringState.Orders):%d", len(ringState.Orders))
 	ringState.Gas = new(big.Int)
-	ringState.Gas.Set(e.gasUsedWithLength[len(ringState.Orders)])
+	ringState.Gas.Set(gas)
 	protocolCost := new(big.Int)
 	protocolCost.Mul(ringState.Gas, ringState.GasPrice)
 
@@ -385,7 +393,7 @@ func (e *Evaluator) evaluateReceived(ringState *types.Ring) {
 
 func NewEvaluator(marketCapProvider marketcap.MarketCapProvider, minerOptions config.MinerOptions) *Evaluator {
 	gasUsedMap := make(map[int]*big.Int)
-	gasUsedMap[2] = big.NewInt(500000)
+	gasUsedMap[2] = big.NewInt(370000)
 	//todo:confirm this value
 	gasUsedMap[3] = big.NewInt(500000)
 	gasUsedMap[4] = big.NewInt(500000)
@@ -401,6 +409,11 @@ func NewEvaluator(marketCapProvider marketcap.MarketCapProvider, minerOptions co
 	e.walletSplit.SetFloat64(minerOptions.WalletSplit)
 	e.minGasPrice = big.NewInt(minerOptions.MinGasLimit)
 	e.maxGasPrice = big.NewInt(minerOptions.MaxGasLimit)
+	if minerOptions.GasPriceRate <= 0.0001 {
+		e.gasPriceRate = float64((1.0))
+	} else {
+		e.gasPriceRate = minerOptions.GasPriceRate
+	}
 	return e
 }
 

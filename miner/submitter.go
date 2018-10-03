@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 	"strings"
+	"time"
 )
 
 //保存ring，并将ring发送到区块链，同样需要分为待完成和已完成
@@ -58,6 +59,8 @@ type RingSubmitter struct {
 
 	kafkaConsumer *kafka.ConsumerRegister
 
+	evaluator *Evaluator
+
 	stopFuncs []func()
 }
 
@@ -70,8 +73,9 @@ func getKafkaGroup() string {
 	return "submitter_"
 }
 
-func NewSubmitter(options config.MinerOptions, dbService dao.RdsServiceImpl, brokers []string) (*RingSubmitter, error) {
+func NewSubmitter(options config.MinerOptions, evaluator *Evaluator, dbService dao.RdsServiceImpl, brokers []string) (*RingSubmitter, error) {
 	submitter := &RingSubmitter{}
+	submitter.evaluator = evaluator
 	submitter.maxGasLimit = big.NewInt(options.MaxGasLimit)
 	submitter.minGasLimit = big.NewInt(options.MinGasLimit)
 	if common.IsHexAddress(options.FeeReceipt) {
@@ -225,11 +229,12 @@ func (submitter *RingSubmitter) handleNewRing(input interface{}) error {
 		txhash, status, tx, err := submitter.submitRing(evt)
 		if nil != err {
 			log.Errorf("err:%s", err.Error())
+		} else {
+			if types.TX_STATUS_PENDING == status {
+				submitter.sendPendingTransaction(tx, evt.Miner)
+			}
+			submitter.submitResult(evt.SubmitInfoId, tx.Nonce(), evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
 		}
-		if types.TX_STATUS_PENDING == status {
-			submitter.sendPendingTransaction(tx, evt.Miner)
-		}
-		submitter.submitResult(evt.SubmitInfoId, evt.Ringhash, evt.UniqueId, txhash, status, big.NewInt(0), big.NewInt(0), big.NewInt(0), err)
 	} else {
 		log.Errorf("receive submitInfo ,but type not match")
 		return errors.New("type not match")
@@ -255,7 +260,11 @@ func (submitter *RingSubmitter) submitRing(evt *types.RingSubmitInfoEvent) (comm
 		}
 
 		txHashStr := "0x"
-		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe)
+		nonce,err2 := submitter.dbService.GetSubmitterNonce(evt.Miner.Hex())
+		if nil != err2 {
+			nonce = 0
+		}
+		txHashStr, tx, err = accessor.SignAndSendTransaction(evt.Miner, evt.ProtocolAddress, evt.ProtocolGas, evt.ProtocolGasPrice, nil, callData, needPreExe, big.NewInt(int64(nonce)), false)
 		if nil != err {
 			log.Errorf("submitring hash:%s, err:%s", evt.Ringhash.Hex(), err.Error())
 			status = types.TX_STATUS_FAILED
@@ -328,7 +337,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 				for _, info := range infos {
 					ringhash := common.HexToHash(info.RingHash)
 					uniqueId := common.HexToHash(info.UniqueId)
-					submitter.submitResult(0, ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
+					submitter.submitResult(0, uint64(info.TxNonce), ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
 				}
 			}
 			return nil
@@ -358,7 +367,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 			for _, info := range infos {
 				ringhash := common.HexToHash(info.RingHash)
 				uniqueId := common.HexToHash(info.UniqueId)
-				submitter.submitResult(0, ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
+				submitter.submitResult(0, uint64(info.TxNonce), ringhash, uniqueId, txhash, status, big.NewInt(0), blockNumber, gasUsed, eventErr)
 			}
 		}
 		return nil
@@ -374,7 +383,7 @@ func (submitter *RingSubmitter) listenSubmitRingMethodEvent() {
 	})
 }
 
-func (submitter *RingSubmitter) submitResult(recordId int, ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
+func (submitter *RingSubmitter) submitResult(recordId int, txNonce uint64, ringhash, uniqeId, txhash common.Hash, status types.TxStatus, ringIndex, blockNumber, usedGas *big.Int, err error) {
 	if nil == err {
 		err = errors.New("")
 	}
@@ -388,6 +397,7 @@ func (submitter *RingSubmitter) submitResult(recordId int, ringhash, uniqeId, tx
 		RingIndex:    ringIndex,
 		BlockNumber:  blockNumber,
 		UsedGas:      usedGas,
+		TxNonce:txNonce,
 	}
 	if err := submitter.dbService.UpdateRingSubmitInfoResult(resultEvt); nil != err {
 		log.Errorf("err:%s", err.Error())
@@ -457,6 +467,7 @@ func (submitter *RingSubmitter) stop() {
 
 const (
 	ZKLOCK_SUBMITTER_MINER_ADDR_PRE = "zklock_submitter_miner_addr_"
+	ZKLOCK_MONITOR_SUBMITINFO       = "zklock_monitor_submitinfo"
 )
 
 func (submitter *RingSubmitter) listenNewRings() {
@@ -477,6 +488,7 @@ func (submitter *RingSubmitter) start() {
 	//submitter.listenSubmitRingMethodEventFromMysql()
 	submitter.listenBlockNew()
 	submitter.listenSubmitRingMethodEvent()
+	submitter.monitorAndReSubmitRing()
 }
 
 func (submitter *RingSubmitter) availableSenderAddresses() []*NormalSenderAddress {
@@ -507,6 +519,80 @@ func (submitter *RingSubmitter) selectSenderAddress() (common.Address, error) {
 	} else {
 		return senderAddresses[0].Address, nil
 	}
+}
+
+func (submitter *RingSubmitter) monitorAndReSubmitRing() {
+	stopChan := make(chan bool)
+	go func() {
+		zklock.TryLock(ZKLOCK_MONITOR_SUBMITINFO)
+		submitter.stopFuncs = append(submitter.stopFuncs, func() {
+			zklock.ReleaseLock(ZKLOCK_MONITOR_SUBMITINFO)
+		})
+		for {
+			select {
+			case <-time.After(1 * time.Minute):
+				createTime := time.Now().Unix() - 10*60
+				resubmitedHashes := make(map[string]bool)
+				if pendingInfos, err := submitter.dbService.GetPendingTx(createTime); nil == err {
+					for _, info := range pendingInfos {
+						if _,ok := resubmitedHashes[strings.ToLower(info.RingHash)]; ok {
+							continue
+						} else {
+							resubmitedHashes[strings.ToLower(info.RingHash)] = true
+						}
+						if hasReSubmitted,err3 := submitter.dbService.HasReSubmited(createTime, info.Miner, info.TxNonce);nil == err3 && !hasReSubmitted {
+							//status := types.TX_STATUS_PENDING
+							gasPrice,gas := submitter.evaluator.EstimateGasPrice(int(info.OrdersCount))
+							infoGasPrice := new(big.Int)
+							infoGasPrice.SetString(info.ProtocolGasPrice, 0)
+							if gasPrice.Cmp(infoGasPrice) <= 0 {
+								continue
+							}
+							//gasPrice.SetString(info.ProtocolGasPrice, 0)
+							txHashStr, tx, err := accessor.SignAndSendTransaction(common.HexToAddress(info.Miner),
+								common.HexToAddress(info.ProtocolAddress),
+								gas,
+								gasPrice,
+								nil,
+								common.FromHex(info.ProtocolData), false, big.NewInt(int64(info.TxNonce)), true)
+							if nil == err {
+								log.Infof("resubmit ring hash:%s, preHash:%s txhash:%s - %s, old-nonce: %d, new-nonce:%d",
+									info.RingHash, info.ProtocolTxHash, txHashStr, tx.Hash().Hex(), info.TxNonce, tx.Nonce() )
+								daoInfo := &dao.RingSubmitInfo{}
+								daoInfo.RingHash = info.RingHash
+								daoInfo.UniqueId = info.UniqueId
+								daoInfo.ProtocolAddress = info.ProtocolAddress
+								daoInfo.OrdersCount = info.OrdersCount
+								daoInfo.ProtocolData = info.ProtocolData
+								daoInfo.ProtocolGas = gas.String()
+								daoInfo.ProtocolUsedGas = "0"
+								daoInfo.ProtocolGasPrice = gasPrice.String()
+								daoInfo.Miner = info.Miner
+								daoInfo.TxNonce = tx.Nonce()
+								daoInfo.Status = 1
+								daoInfo.ProtocolTxHash = tx.Hash().Hex()
+								if nil != err {
+									daoInfo.Err = err.Error()
+								}
+
+								if err := submitter.dbService.Add(daoInfo); nil != err {
+									log.Errorf("insert new ring err:%s", err.Error())
+								}
+							}
+						}
+					}
+				}
+
+			case <-stopChan:
+				return
+			}
+		}
+	}()
+
+	submitter.stopFuncs = append(submitter.stopFuncs, func() {
+		stopChan <- true
+		close(stopChan)
+	})
 }
 
 //func (submitter *RingSubmitter) computeReceivedAndSelectMiner(ringSubmitInfo *types.RingSubmitInfo) error {

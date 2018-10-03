@@ -127,7 +127,7 @@ func (market *Market) match() {
 			//todo:move a2BOrder.RawOrder.Owner != b2AOrder.RawOrder.Owner after contract fix bug
 			if miner.PriceValid(a2BOrder, b2AOrder) && a2BOrder.RawOrder.Owner != b2AOrder.RawOrder.Owner {
 				if candidateRing, err := market.GenerateCandidateRing(a2BOrder, b2AOrder); nil != err {
-					log.Errorf("err:%s", err.Error())
+					log.Debugf("err:%s", err.Error())
 					continue
 				} else {
 					if candidateRing.received.Sign() > 0 {
@@ -332,7 +332,7 @@ func (market *Market) GenerateCandidateRing(orders ...*types.OrderState) (*Candi
 	//miner will received nothing, if miner set FeeSelection=1 and he doesn't have enough lrc
 	for _, order := range orders {
 		if filledOrder, err := market.generateFilledOrder(order); nil != err {
-			log.Errorf("err:%s", err.Error())
+			log.Debugf("err:%s", err.Error())
 			return nil, err
 		} else {
 			filledOrders = append(filledOrders, filledOrder)

@@ -98,11 +98,11 @@ func EstimateGas(callData []byte, to common.Address, blockNumber string) (gas, g
 	return accessor.EstimateGas(blockNumber, callData, to)
 }
 
-func SignAndSendTransaction(sender common.Address, to common.Address, gas, gasPrice, value *big.Int, callData []byte, needPreExe bool) (string, *ethTypes.Transaction, error) {
-	return accessor.ContractSendTransactionByData("latest", sender, to, gas, gasPrice, value, callData, needPreExe)
+func SignAndSendTransaction(sender common.Address, to common.Address, gas, gasPrice, value *big.Int, callData []byte, needPreExe bool, nonce *big.Int, fixNonce bool) (string, *ethTypes.Transaction, error) {
+	return accessor.ContractSendTransactionByData("latest", sender, to, gas, gasPrice, value, callData, needPreExe, nonce, fixNonce)
 }
 
-func ContractSendTransactionMethod(routeParam string, a *abi.ABI, contractAddress common.Address) func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, args ...interface{}) (string, *ethTypes.Transaction, error) {
+func ContractSendTransactionMethod(routeParam string, a *abi.ABI, contractAddress common.Address) func(sender common.Address, methodName string, gas, gasPrice, value *big.Int, nonce *big.Int,fixNonce bool, args ...interface{}) (string, *ethTypes.Transaction, error) {
 	return accessor.ContractSendTransactionMethod(routeParam, a, contractAddress)
 }
 
@@ -119,7 +119,7 @@ func BatchCall(routeParam string, reqs []BatchReq) error {
 		elemsLength = append(elemsLength, len(elems1))
 		elems = append(elems, elems1...)
 	}
-	if elems, err = accessor.BatchCall(routeParam, elems); nil != err {
+	if elems, err = accessor.RetryBatchCall(routeParam, elems, 3); nil != err {
 		return err
 	} else {
 		startId := 0

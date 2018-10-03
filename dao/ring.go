@@ -22,9 +22,10 @@ import (
 	"github.com/Loopring/relay-lib/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
-	"github.com/pkg/errors"
+	"errors"
 	"math/big"
 	"time"
+	"github.com/Loopring/relay-lib/log"
 )
 
 type FilledOrder struct {
@@ -121,23 +122,23 @@ func (s *RdsServiceImpl) GetFilledOrderByRinghash(ringhash common.Hash) ([]*Fill
 }
 
 type RingSubmitInfo struct {
-	ID               int    `gorm:"column:id;primary_key;"`
-	RingHash         string `gorm:"column:ringhash;type:varchar(82)"`
-	UniqueId         string `gorm:"column:unique_id;type:varchar(82)"`
-	ProtocolAddress  string `gorm:"column:protocol_address;type:varchar(42)"`
-	OrdersCount      int64  `gorm:"column:order_count;type:bigint"`
-	ProtocolData     string `gorm:"column:protocol_data;type:text"`
-	ProtocolGas      string `gorm:"column:protocol_gas;type:varchar(50)"`
-	ProtocolGasPrice string `gorm:"column:protocol_gas_price;type:varchar(50)"`
-	ProtocolUsedGas  string `gorm:"column:protocol_used_gas;type:varchar(50)"`
-	ProtocolTxHash   string `gorm:"column:protocol_tx_hash;type:varchar(82)"`
-
-	Status      int       `gorm:"column:status;type:int"`
-	RingIndex   string    `gorm:"column:ring_index;type:varchar(50)"`
-	BlockNumber string    `gorm:"column:block_number;type:varchar(50)"`
-	Miner       string    `gorm:"column:miner;type:varchar(42)"`
-	Err         string    `gorm:"column:err;type:text"`
-	CreateTime  time.Time `gorm:"column:create_time;type:TIMESTAMP;default:CURRENT_TIMESTAMP"`
+	ID               int       `gorm:"column:id;primary_key;"`
+	RingHash         string    `gorm:"column:ringhash;type:varchar(82)"`
+	UniqueId         string    `gorm:"column:unique_id;type:varchar(82)"`
+	ProtocolAddress  string    `gorm:"column:protocol_address;type:varchar(42)"`
+	OrdersCount      int64     `gorm:"column:order_count;type:bigint"`
+	ProtocolData     string    `gorm:"column:protocol_data;type:text"`
+	ProtocolGas      string    `gorm:"column:protocol_gas;type:varchar(50)"`
+	ProtocolGasPrice string    `gorm:"column:protocol_gas_price;type:varchar(50)"`
+	ProtocolUsedGas  string    `gorm:"column:protocol_used_gas;type:varchar(50)"`
+	ProtocolTxHash   string    `gorm:"column:protocol_tx_hash;type:varchar(82)"`
+	TxNonce          uint64    `gorm:"column:tx_nonce;type:bigint"`
+	Status           int       `gorm:"column:status;type:int"`
+	RingIndex        string    `gorm:"column:ring_index;type:varchar(50)"`
+	BlockNumber      string    `gorm:"column:block_number;type:varchar(50)"`
+	Miner            string    `gorm:"column:miner;type:varchar(42)"`
+	Err              string    `gorm:"column:err;type:text"`
+	CreateTime       time.Time `gorm:"column:create_time;type:TIMESTAMP;default:CURRENT_TIMESTAMP"`
 }
 
 func getBigIntString(v *big.Int) string {
@@ -209,6 +210,9 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 		"protocol_tx_hash":  submitResult.TxHash.Hex(),
 		"err":               submitResult.Err,
 	}
+	if submitResult.TxNonce > 0 {
+		items["tx_nonce"] = submitResult.TxNonce
+	}
 	//if "" != submitResult.Err {
 	//	items["err"] = submitResult.Err
 	//}
@@ -231,6 +235,50 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoResult(submitResult *types.RingSubm
 
 func (s *RdsServiceImpl) GetRingForSubmitByHash(ringhash common.Hash) (ringForSubmit RingSubmitInfo, err error) {
 	err = s.Db.Where("ringhash = ? ", ringhash.Hex()).First(&ringForSubmit).Error
+	return
+}
+
+func (s *RdsServiceImpl) HasReSubmited(createTime int64, miner string, txNonce uint64) (bool, error) {
+	t := big.NewInt(createTime)
+	count := 0
+	err := s.Db.Model(&RingSubmitInfo{}).Where("UNIX_TIMESTAMP(create_time) > ? and miner = ? and tx_nonce = ?", t.String(), miner, txNonce).Count(&count).Error
+	return (count>0),err
+}
+func (s *RdsServiceImpl) GetPendingTx(createTime int64) (ringForSubmits []RingSubmitInfo, err error) {
+	ringForSubmits = []RingSubmitInfo{}
+	t := big.NewInt(createTime)
+	if err := s.Db.Raw("select infos.* from lpr_ring_submit_infos as infos " +
+	" join " +
+	" (select miner, max(tx_nonce) blockedNonce from lpr_ring_submit_infos  where status in (2,3) group by miner) as blockedNonces on blockedNonces.miner=infos.miner and status = 1 " +
+	"	and infos.tx_nonce > blockedNonces.blockedNonce and UNIX_TIMESTAMP(create_time) < " + t.String() + " order by infos.tx_nonce").Scan(&ringForSubmits).Error;nil != err {
+		log.Errorf("err:%s", err.Error())
+	}
+			//minerBlockedNonces := []map[string]interface{}{}
+	//if err = s.Db.Raw("select " +
+	//	"miner, " +
+	//	"max(tx_nonce) blockedNonce " +
+	//	" from lpr_ring_submit_infos " +
+	//	" where status = 2 " +
+	//	" group by miner ").Scan(&minerBlockedNonces).Error; nil == err {
+	//	for _, minerBlockNonce := range minerBlockedNonces {
+	//		miner := minerBlockNonce["miner"]
+	//		nonce := minerBlockNonce["blockedNonce"]
+	//		var list []RingSubmitInfo
+	//		if err1 := s.Db.Model(&RingSubmitInfo{}).Where(" create_time > ? and status = ? and miner = ? and tx_nonce > ? ", createTime, 0, miner, nonce).Scan(&list).Error; nil == err1 {
+	//			if len(list) > 0 {
+	//				for _, info := range list {
+	//					ringForSubmits = append(ringForSubmits, info)
+	//				}
+	//			} else {
+	//				log.Debugf("can't get pendingtx of owner:%s, nonce:%d in submitringinfo", miner, nonce)
+	//			}
+	//		} else {
+	//			log.Errorf("error:%s", err1.Error())
+	//		}
+	//	}
+	//} else {
+	//	log.Errorf("err:%s", err.Error())
+	//}
 	return
 }
 
@@ -258,4 +306,15 @@ func (s *RdsServiceImpl) UpdateRingSubmitInfoErrById(id int, err error) error {
 	}
 	dbForUpdate := s.Db.Model(&RingSubmitInfo{}).Where("id = ?", id)
 	return dbForUpdate.Update("err", err.Error()).Error
+}
+
+func (s *RdsServiceImpl) GetSubmitterNonce(submitter string) (uint64,error) {
+	nonce := []uint64{}
+	println(submitter)
+	err := s.Db.Model(&RingSubmitInfo{}).Where("miner=?", submitter).Pluck(" max(tx_nonce) ", &nonce).Error
+	if len(nonce) > 0 {
+		return nonce[0]+1,err
+	} else {
+		return 0, err
+	}
 }

@@ -178,9 +178,9 @@ func (matcher *TimingMatcher) GetAccountAvailableAmount(address, tokenAddress, s
 	}
 
 	matchedAmountS, _ := FilledAmountS(address, tokenAddress)
-	log.Debugf("owner:%s, token:%s, spender:%s, availableAmount:%s, balance:%s, allowance:%s, matchedAmountS:%s", address.Hex(), tokenAddress.Hex(), spender.Hex(), availableAmount.FloatString(2), balance.String(), allowance.String(), matchedAmountS.FloatString(2))
 
 	availableAmount.Sub(availableAmount, matchedAmountS)
+	log.Debugf("owner:%s, token:%s, spender:%s, availableAmount:%s, matchedAmountS:%s", address.Hex(), tokenAddress.Hex(), spender.Hex(), availableAmount.FloatString(2), matchedAmountS.FloatString(2))
 
 	return availableAmount, nil
 	//if balance, allowance, err := datasource.GetBalanceAndAllowance(address, tokenAddress, spender); nil != err {

@@ -168,7 +168,7 @@ func (matcher *TimingMatcher) GetAccountAvailableAmount(address, tokenAddress, s
 
 	availableAmount := big.NewRat(0,1)
 	if _,hasToken := matcher.balanceAndAllowances[address]; !hasToken {
-		matcher.balanceAndAllowances[address][tokenAddress] = big.NewRat(0,1)
+		matcher.balanceAndAllowances[address] = make(map[common.Address]*big.Rat)
 	}
 	if availableAmount1,ok := matcher.balanceAndAllowances[address][tokenAddress]; ok {
 		availableAmount.Set(availableAmount1)

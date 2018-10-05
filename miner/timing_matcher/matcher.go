@@ -62,6 +62,8 @@ type TimingMatcher struct {
 	blockEndConsumer          *kafka.ConsumerRegister
 	relayProcessedBlockNumber *big.Int
 
+	balanceAndAllowances map[common.Address]*big.Rat
+
 	stopFuncs []func()
 }
 
@@ -159,21 +161,38 @@ func (matcher *TimingMatcher) Stop() {
 
 func (matcher *TimingMatcher) GetAccountAvailableAmount(address, tokenAddress, spender common.Address) (*big.Rat, error) {
 	//log.Debugf("address: %s , token: %s , spender: %s", address.Hex(), tokenAddress.Hex(), spender.Hex())
-	if balance, allowance, err := datasource.GetBalanceAndAllowance(address, tokenAddress, spender); nil != err {
-		return nil, err
+	availableAmount := big.NewRat(0,1)
+	if availableAmount1,ok := matcher.balanceAndAllowances[address]; ok {
+		availableAmount.Set(availableAmount1)
 	} else {
-		availableAmount := new(big.Rat).SetInt(balance)
-		allowanceAmount := new(big.Rat).SetInt(allowance)
-		if availableAmount.Cmp(allowanceAmount) > 0 {
-			availableAmount = allowanceAmount
+		if balance, allowance, err := datasource.GetBalanceAndAllowance(address, tokenAddress, spender); nil != err {
+			return nil, err
+		} else {
+			availableAmount.SetInt(balance)
+			allowanceAmount := new(big.Rat).SetInt(allowance)
+			if availableAmount.Cmp(allowanceAmount) > 0 {
+				availableAmount = allowanceAmount
+			}
+			matcher.balanceAndAllowances[address] = availableAmount
 		}
-		matchedAmountS, _ := FilledAmountS(address, tokenAddress)
-		log.Debugf("owner:%s, token:%s, spender:%s, availableAmount:%s, balance:%s, allowance:%s, matchedAmountS:%s", address.Hex(), tokenAddress.Hex(), spender.Hex(), availableAmount.FloatString(2), balance.String(), allowance.String(), matchedAmountS.FloatString(2))
-
-		availableAmount.Sub(availableAmount, matchedAmountS)
-
-		return availableAmount, nil
 	}
+
+	matchedAmountS, _ := FilledAmountS(address, tokenAddress)
+	log.Debugf("owner:%s, token:%s, spender:%s, availableAmount:%s, balance:%s, allowance:%s, matchedAmountS:%s", address.Hex(), tokenAddress.Hex(), spender.Hex(), availableAmount.FloatString(2), balance.String(), allowance.String(), matchedAmountS.FloatString(2))
+
+	availableAmount.Sub(availableAmount, matchedAmountS)
+
+	return availableAmount, nil
+	//if balance, allowance, err := datasource.GetBalanceAndAllowance(address, tokenAddress, spender); nil != err {
+	//	return nil, err
+	//} else {
+	//	availableAmount := new(big.Rat).SetInt(balance)
+	//	allowanceAmount := new(big.Rat).SetInt(allowance)
+	//	if availableAmount.Cmp(allowanceAmount) > 0 {
+	//		availableAmount = allowanceAmount
+	//	}
+	//
+	//}
 }
 
 func (matcher *TimingMatcher) localAllMarkets() Markets {

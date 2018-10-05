@@ -101,7 +101,7 @@ func (matcher *TimingMatcher) listenTimingRound() {
 		matcher.lastRoundNumber = big.NewInt(time.Now().UnixNano() / 1e6)
 		//matcher.rounds.appendNewRoundState(matcher.lastRoundNumber)
 		var wg sync.WaitGroup
-		matcher.balanceAndAllowances = make(map[common.Address]*big.Rat)
+		matcher.balanceAndAllowances = make(map[common.Address]map[common.Address]*big.Rat)
 		for _, market := range matcher.runingMarkets {
 			wg.Add(1)
 			go func(m *Market) {

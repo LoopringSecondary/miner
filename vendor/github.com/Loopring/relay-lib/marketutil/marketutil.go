@@ -65,11 +65,13 @@ var (
 	AllTokenPairs  []TokenPair
 	DisplayMarkets []types.Market
 	SymbolTokenMap map[common.Address]string
+	MarketsDecimal map[string]types.MarketDecimal
 )
 
 type MarketOptions struct {
 	TokenFile             string
 	MarketFile            string
+	DecimalFile           string
 	OldVersionWethAddress string
 }
 
@@ -78,10 +80,10 @@ func StartRefreshCron(option *MarketOptions) {
 	mktCron.AddFunc("1 0/10 * * * *", func() {
 		log.Info("start market util refresh.....")
 		SupportTokens, SupportMarkets, AllTokens, AllMarkets, AllTokenPairs, SymbolTokenMap = getTokenAndMarketFromDB(option.TokenFile)
-	})
-	mktCron.AddFunc("1 0/10 * * * *", func() {
 		DisplayMarkets = getDisplayMarketsFromDB(option.MarketFile)
+		MarketsDecimal = getMarketsDecimal(option.DecimalFile)
 	})
+
 	mktCron.Start()
 }
 
@@ -214,6 +216,30 @@ func getDisplayMarketsFromDB(marketfile string) (displayMarkets []types.Market) 
 	return
 }
 
+func getMarketsDecimal(decimalfile string) (marketsDecimal map[string]types.MarketDecimal) {
+
+	fn, err := os.Open(decimalfile)
+	if err != nil {
+		log.Fatalf("market util load market of decimal failed:%s", err.Error())
+	}
+
+	bs, err := ioutil.ReadAll(fn)
+	if err != nil {
+		log.Fatalf("market util read market of decimal json file failed:%s", err.Error())
+	}
+
+	mkDecimals := make([]types.MarketDecimal, 0)
+	if err := json.Unmarshal(bs, &mkDecimals); err != nil {
+		log.Fatalf("market util unmarshal tokens failed:%s", err.Error())
+	}
+
+	marketsDecimal = make(map[string]types.MarketDecimal)
+	for _, v := range mkDecimals {
+		marketsDecimal[v.Market] = v
+	}
+	return
+}
+
 func Initialize(options *MarketOptions) {
 
 	SupportTokens = make(map[string]types.Token)
@@ -340,6 +366,15 @@ func AddressToAlias(t string) string {
 	for k, v := range AllTokens {
 		if strings.ToUpper(t) == strings.ToUpper(v.Protocol.Hex()) {
 			return k
+		}
+	}
+	return ""
+}
+
+func AddressToSource(t string) string {
+	for _, v := range AllTokens {
+		if strings.ToUpper(t) == strings.ToUpper(v.Protocol.Hex()) {
+			return v.Source
 		}
 	}
 	return ""

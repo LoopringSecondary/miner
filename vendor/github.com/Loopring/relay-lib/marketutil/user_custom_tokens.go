@@ -36,6 +36,7 @@ type CustomToken struct {
 	Address  common.Address `json:"address"`
 	Symbol   string         `json:"symbol"`
 	Decimals *big.Int       `json:"decimals"`
+	Source   string         `json:"source"`
 }
 
 var localCache *gocache.Cache
@@ -196,7 +197,8 @@ func hadRegistedInner(tokenMap map[string]CustomToken, address common.Address) b
 
 func AddressToSymbol(address, token common.Address) (symbol string, err error) {
 
-	tokens, err := GetCustomTokenList(address); if err != nil {
+	tokens, err := GetCustomTokenList(address)
+	if err != nil {
 		return symbol, err
 	}
 

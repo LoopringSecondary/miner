@@ -135,10 +135,10 @@
 			"revisionTime": "2018-11-30T02:39:48Z"
 		},
 		{
-			"checksumSHA1": "XMij5Ne/f+B5xc1SU2oll/t500I=",
+			"checksumSHA1": "+D37t3sw/kmw8XwvHIcDCZzXOxs=",
 			"path": "github.com/Loopring/relay-lib/cache/redis",
-			"revision": "15e56ad2fa8ac535c4dc7fbe69efd3789722d952",
-			"revisionTime": "2018-06-19T07:11:06Z"
+			"revision": "d8116339b7dbe2da935ca75debe4cda503c93117",
+			"revisionTime": "2018-11-30T02:39:48Z"
 		},
 		{
 			"checksumSHA1": "RM1gCSUrhZR0F+gidnh74RkSEo8=",
@@ -255,10 +255,10 @@
 			"revisionTime": "2018-06-11T09:41:12Z"
 		},
 		{
-			"checksumSHA1": "FAFCrYTu9wIa14mK8x104OWw3XU=",
+			"checksumSHA1": "9BdmzTfMGuN6qIRHFVENWF7Fwwo=",
 			"path": "github.com/Loopring/relay-lib/types",
-			"revision": "f0cf158960ab344d71f91af0ebc99880f6794add",
-			"revisionTime": "2018-09-28T05:39:42Z"
+			"revision": "d8116339b7dbe2da935ca75debe4cda503c93117",
+			"revisionTime": "2018-11-30T02:39:48Z"
 		},
 		{
 			"checksumSHA1": "kP14pwbOsJlPAwJAh4TYBCeYrlo=",

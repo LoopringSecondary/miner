@@ -87,11 +87,6 @@ func (ring *Ring) GenerateHash(feeReceipt common.Address) common.Hash {
 		feeReceipt.Bytes(),
 		common.LeftPadBytes(ring.FeeSelections().Bytes(), 2),
 	)
-	bs := []byte{}
-	bs = append(bs, ring.GenerateUniqueId().Bytes()...)
-		bs = append(bs, 	feeReceipt.Bytes()...)
-	bs = append(bs, common.LeftPadBytes(ring.FeeSelections().Bytes(), 2)...)
-	println("#########",common.Bytes2Hex(bs))
 	return common.BytesToHash(hashBytes)
 }
 

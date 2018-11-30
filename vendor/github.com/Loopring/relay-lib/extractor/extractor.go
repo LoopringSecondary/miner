@@ -23,8 +23,8 @@ import (
 	"fmt"
 	"github.com/Loopring/relay-lib/eventemitter"
 	"github.com/Loopring/relay-lib/kafka"
-	"github.com/Loopring/relay-lib/types"
 	"github.com/Loopring/relay-lib/log"
+	"github.com/Loopring/relay-lib/types"
 )
 
 // 接收来自kafka消息,解析成不同数据类型后使用lib/eventemitter模块发送

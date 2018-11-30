@@ -38,7 +38,7 @@ const batchSendSize = 20 //aws only allow not more than 20 items in one request,
 
 type CloudWatchConfig struct {
 	Enabled bool
-	Region  string
+	Region string
 }
 
 type CloudWatchClient struct {
